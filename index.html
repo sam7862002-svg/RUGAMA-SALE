@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>റുഗാമ സൂപ്പർമാർക്കറ്റ് മാനേജ്‌മെന്റ് സിസ്റ്റം</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    @media print {
+      body * { visibility: hidden; }
+      #printableReportArea, #printableReportArea * { visibility: visible; }
+      #printableReportArea { position: absolute; left: 0; top: 0; width: 100%; }
+      .printableArea, .printableArea * { visibility: visible; }
+      .printableArea { position: absolute; left: 0; top: 0; width: 100%; }
+      .no-print { display: none !important; }
+      .print-full-list { max-height: none !important; overflow: visible !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen p-3">
+
+  <datalist id="customerList"></datalist>
+  <datalist id="supplierList"></datalist>
+  <datalist id="employeeList"></datalist>
+  <datalist id="expenseCategoryList"></datalist>
+
+  <div class="max-w-7xl mx-auto space-y-4">
+    
+    <!-- Top Main Navigation Bar with Master Date Picker -->
+    <header class="bg-white p-4 rounded-2xl shadow-sm border flex flex-col sm:flex-row justify-between items-center gap-3 no-print">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center font-bold text-lg">🏪</div>
+        <div>
+          <h1 class="text-base font-bold text-slate-900">റുഗാമ സൂപ്പർമാർക്കറ്റ്</h1>
+          <p class="text-xs text-slate-500" id="todayTextDisplay"></p>
+        </div>
+      </div>
+
+      <!-- Master Global Date Picker -->
+      <div class="flex items-center gap-2 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-xl">
+        <label class="text-xs font-bold text-indigo-900">📅 തീയതി:</label>
+        <input type="date" id="globalTransactionDate" class="border rounded-lg p-1 text-xs font-bold bg-white text-indigo-900 focus:outline-none">
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        <button onclick="switchMainTab('salepur')" id="mainBtn-salepur" class="bg-indigo-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition">📝 ഇടപാടുകൾ</button>
+        <button onclick="switchMainTab('customer')" id="mainBtn-customer" class="bg-slate-100 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold transition">👥 കസ്റ്റമർ & വെണ്ടർ</button>
+        <button onclick="switchMainTab('report')" id="mainBtn-report" class="bg-slate-100 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold transition">📊 റിപ്പോർട്ട്</button>
+        <button onclick="switchMainTab('master')" id="mainBtn-master" class="bg-slate-100 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold transition">⚙️ മാസ്റ്റർ</button>
+      </div>
+    </header>
+
+    <!-- ==================== 1. SALEPUR MODULE ==================== -->
+    <div id="mainView-salepur" class="main-view space-y-4">
+      <div class="flex gap-2 bg-white p-2.5 rounded-xl border shadow-sm no-print">
+        <button onclick="switchSubSalepur('entry')" id="subBtn-entry" class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition">➕ പുതിയ ഇടപാട്</button>
+        <button onclick="switchSubSalepur('history')" id="subBtn-history" class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition">📋 ഹിസ്റ്ററി</button>
+      </div>
+
+      <div id="subView-entry" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Sale Form -->
+        <div class="bg-white p-4 rounded-2xl border shadow-sm space-y-3">
+          <h2 class="font-bold text-indigo-900 text-sm border-b pb-2">🛒 സെയിൽസ് (Cash / Bank)</h2>
+          <div>
+            <div class="flex justify-between items-center mt-1"><label class="text-xs font-bold text-slate-600">കസ്റ്റമർ പേര്</label><span id="saleCustBal" class="text-[10px] font-bold text-amber-700"></span></div>
+            <input type="text" list="customerList" id="saleCustomer" oninput="updateCustBalance()" class="w-full border rounded-xl p-2 text-xs bg-white mt-1" placeholder="കസ്റ്റമർ പേര്">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div><label class="text-[10px] font-bold text-emerald-800">💵 ക്യാഷ് (₹)</label><input type="number" step="0.01" id="saleCash" value="0" onfocus="this.select()" class="w-full border rounded p-1.5 text-xs font-bold text-emerald-700 bg-white"></div>
+            <div><label class="text-[10px] font-bold text-blue-800">🏦 ബാങ്ക് (₹)</label><input type="number" step="0.01" id="saleBank" value="0" onfocus="this.select()" class="w-full border rounded p-1.5 text-xs font-bold text-blue-700 bg-white"></div>
+          </div>
+          <div><label class="text-xs font-bold text-slate-600">വിവരണം</label><input type="text" id="saleNotes" class="w-full border rounded-xl p-2 text-xs bg-white mt-1" placeholder="വിവരണം"></div>
+          <button onclick="saveSale()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs transition">💾 സെയിൽസ് സേവ് ചെയ്യുക</button>
+        </div>
+
+        <!-- Purchase Form -->
+        <div class="bg-white p-4 rounded-2xl border shadow-sm space-y-3">
+          <h2 class="font-bold text-blue-900 text-sm border-b pb-2">📦 പർച്ചേസ് (Cash / Bank)</h2>
+          <div>
+            <div class="flex justify-between items-center mt-1"><label class="text-xs font-bold text-slate-600">വെണ്ടർ പേര്</label><span id="purSuppBal" class="text-[10px] font-bold text-rose-700"></span></div>
+            <input type="text" list="supplierList" id="purSupplier" oninput="updateSuppBalance()" class="w-full border rounded-xl p-2 text-xs bg-white mt-1" placeholder="വെണ്ടർ പേര്">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div><label class="text-[10px] font-bold text-emerald-800">💵 ക്യാഷ് (₹)</label><input type="number" step="0.01" id="purCash" value="0" onfocus="this.select()" class="w-full border rounded p-1.5 text-xs font-bold text-emerald-700 bg-white"></div>
+            <div><label class="text-[10px] font-bold text-blue-800">🏦 ബാങ്ക് (₹)</label><input type="number" step="0.01" id="purBank" value="0" onfocus="this.select()" class="w-full border rounded p-1.5 text-xs font-bold text-blue-700 bg-white"></div>
+          </div>
+          <div><label class="text-xs font-bold text-slate-600">വിവരണം</label><input type="text" id="purNotes" class="w-full border rounded-xl p-2 text-xs bg-white mt-1" placeholder="വിവരണം"></div>
+          <button onclick="savePurchase()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-xs transition">💾 പർച്ചേസ് സേവ് ചെയ്യുക</button>
+        </div>
+
+        <!-- Expense Form -->
+        <div class="bg-white p-4 rounded-2xl border shadow-sm space-y-3">
+          <h2 class="font-bold text-rose-900 text-sm border-b pb-2">💸 ചിലവ് & സാലറി</h2>
+          <div>
+            <label class="text-xs font-bold text-slate-600">കാറ്റഗറി</label>
+            <input type="text" list="expenseCategoryList" id="expCategory" oninput="checkSalaryCategory()" onchange="checkSalaryCategory()" class="w-full border rounded-xl p-2 text-xs bg-white mt-1" placeholder="കാറ്റഗറി തിരഞ്ഞെടുക്കുക">
+          </div>
+          <div id="empNameDiv" class="hidden">
+            <div class="flex justify-between items-center mt-1"><label class="text-xs font-bold text-slate-600">എംപ്ലോയി പേര് *</label><span id="empBal" class="text-[10px] font-bold text-indigo-700"></span></div>
+            <input type="text" list="employeeList" id="expEmployee" oninput="updateEmpBalance()" class="w-full border rounded-xl p-2 text-xs bg-white mt-1" placeholder="എംപ്ലോയി പേര്">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div><label class="text-[10px] font-bold text-emerald-800">💵 ക്യാഷ് (₹)</label><input type="number" step="0.01" id="expCash" value="0" onfocus="this.select()" class="w-full border rounded p-1.5 text-xs font-bold text-emerald-700 bg-white"></div>
+            <div><label class="text-[10px] font-bold text-blue-800">🏦 ബാങ്ക് (₹)</label><input type="number" step="0.01" id="expBank" value="0" onfocus="this.select()" class="w-full border rounded p-1.5 text-xs font-bold text-blue-700 bg-white"></div>
+          </div>
+          <div><label class="text-xs font-bold text-slate-600">വിവരണം</label><input type="text" id="expNotes" class="w-full border rounded-xl p-2 text-xs bg-white mt-1" placeholder="കുറിപ്പുകൾ"></div>
+          <button onclick="saveExpense()" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl text-xs transition">💾 ചിലവ് സേവ് ചെയ്യുക</button>
+        </div>
+      </div>
+
+      <div id="subView-history" class="bg-white p-5 rounded-2xl border shadow-sm space-y-3 hidden">
+        <h2 class="font-bold text-slate-900 text-sm border-b pb-2">📋 ഇടപാട് ഹിസ്റ്ററി</h2>
+        <div class="overflow-x-auto border rounded-xl">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 border-b"><tr><th class="p-3">തീയതി</th><th class="p-3">ഇനം</th><th class="p-3">പേര് / വിവരണം</th><th class="p-3">രീതി</th><th class="p-3">തുക</th><th class="p-3 text-right">പ്രവർത്തനങ്ങൾ</th></tr></thead>
+            <tbody id="historyTableBody"><tr><td colspan="6" class="p-4 text-center text-slate-400">ഇടപാടുകൾ ഇല്ല.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 2. CUSTOMER MODULE ==================== -->
+    <div id="mainView-customer" class="main-view grid grid-cols-1 lg:grid-cols-2 gap-6 hidden">
+      <!-- Customer Side -->
+      <div class="bg-white p-5 rounded-2xl border shadow-sm space-y-4">
+        <div class="flex justify-between items-center border-b pb-2">
+          <h2 class="text-base font-black text-indigo-900">🛒 കസ്റ്റമർ മാനേജർ</h2>
+          <div class="flex items-center gap-1">
+            <label class="text-[10px] font-bold text-slate-600">തരം:</label>
+            <select id="custTxType" onchange="toggleCustFieldsUI()" class="border rounded p-1 text-xs bg-white font-bold">
+              <option value="sale_credit">കടം സെയിൽസ്</option>
+              <option value="receipt">പണം തന്നത് (Receipt)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="bg-slate-50 p-3 rounded-xl border space-y-3">
+          <h3 class="text-xs font-bold text-slate-900">➕ കസ്റ്റമർ എൻട്രികൾ (പ്രൂഫ് സഹിതം)</h3>
+          <div id="custMultiRowsContainer" class="space-y-2 max-h-64 overflow-y-auto pr-1">
+            <div class="cust-row bg-white p-2.5 rounded-lg border space-y-2">
+              <div class="flex justify-between items-center">
+                <input type="text" list="customerList" placeholder="കസ്റ്റമർ പേര്" oninput="onMultiCustInput(this)" class="c-name border rounded p-1 text-xs font-bold w-2/3 bg-slate-50">
+                <span class="c-bal text-[10px] font-bold text-amber-700"></span>
+                <button type="button" onclick="removeCustRow(this)" class="text-rose-600 font-bold text-sm px-2">&times;</button>
+              </div>
+              <div class="cust-fields-container"></div>
+            </div>
+          </div>
+          <div class="flex justify-between items-center pt-1">
+            <button type="button" onclick="addCustRow()" class="bg-slate-200 text-slate-800 px-3 py-1 rounded text-xs font-bold">➕ വരി ചേർക്കുക</button>
+            <button onclick="saveCustomerMultiTransactions()" class="bg-indigo-600 text-white font-bold px-4 py-1.5 rounded-lg text-xs">💾 എല്ലാവരുടെയും സേവ് ചെയ്യുക</button>
+          </div>
+        </div>
+
+        <!-- Single Statement Viewer with Print Option -->
+        <div class="border-t pt-3 space-y-3">
+          <div>
+            <label class="text-xs font-bold text-slate-600">സ്റ്റേറ്റ്‌മെന്റ് പരിശോധിക്കാൻ കസ്റ്റമറെ തിരഞ്ഞെടുക്കുക</label>
+            <input type="text" list="customerList" id="inputCustomer" oninput="onCustomerInput()" class="w-full border rounded-xl p-2 text-xs font-bold bg-slate-50 mt-1" placeholder="പേര് ടൈപ്പ് ചെയ്യുക...">
+          </div>
+          <div id="customerDashboard" class="hidden space-y-3">
+            <div class="printableArea space-y-3 bg-white p-2 rounded-xl">
+              <div class="bg-amber-50 border border-amber-200 p-2.5 rounded-xl flex justify-between items-center text-xs">
+                <span class="font-bold text-amber-900">നിലവിലെ കടം:</span>
+                <span class="font-black text-amber-800" id="custCurrentDue">₹ 0.00</span>
+              </div>
+              <div class="flex justify-between items-center no-print">
+                <h4 class="text-xs font-bold text-slate-700 uppercase">സ്റ്റേറ്റ്‌മെന്റ്</h4>
+                <button onclick="window.print()" class="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold">🖨 പ്രിന്റ്</button>
+              </div>
+              <div class="overflow-x-auto border rounded-xl bg-white max-h-48 overflow-y-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-slate-100 border-b sticky top-0"><tr><th class="p-2">തീയതി</th><th class="p-2">വിവരണം / പ്രൂഫ്</th><th class="p-2">രീതി</th><th class="p-2 text-right">തുക</th></tr></thead>
+                  <tbody id="customerStatementBody"><tr><td colspan="4" class="p-2 text-center text-slate-400">വിവരങ്ങൾ ലഭ്യമല്ല.</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vendor Side -->
+      <div class="bg-white p-5 rounded-2xl border shadow-sm space-y-4">
+        <div class="flex justify-between items-center border-b pb-2">
+          <h2 class="text-base font-black text-rose-900">📦 വെണ്ടർ മാനേജർ</h2>
+          <div class="flex items-center gap-1">
+            <label class="text-[10px] font-bold text-slate-600">തരം:</label>
+            <select id="vendTxType" onchange="toggleVendFieldsUI()" class="border rounded p-1 text-xs bg-white font-bold">
+              <option value="purchase_credit">കടം പർച്ചേസ്</option>
+              <option value="payment">പണം കൊടുത്തത് (Payment)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="bg-slate-50 p-3 rounded-xl border space-y-3">
+          <h3 class="text-xs font-bold text-slate-900">➕ വെണ്ടർ എൻട്രികൾ</h3>
+          <div id="vendMultiRowsContainer" class="space-y-2 max-h-64 overflow-y-auto pr-1">
+            <div class="vend-row bg-white p-2.5 rounded-lg border space-y-2">
+              <div class="flex justify-between items-center">
+                <input type="text" list="supplierList" placeholder="വെണ്ടർ പേര്" oninput="onMultiVendInput(this)" class="v-name border rounded p-1 text-xs font-bold w-2/3 bg-slate-50">
+                <span class="v-bal text-[10px] font-bold text-rose-700"></span>
+                <button type="button" onclick="removeVendRow(this)" class="text-rose-600 font-bold text-sm px-2">&times;</button>
+              </div>
+              <div class="vend-fields-container"></div>
+            </div>
+          </div>
+          <div class="flex justify-between items-center pt-1">
+            <button type="button" onclick="addVendRow()" class="bg-slate-200 text-slate-800 px-3 py-1 rounded text-xs font-bold">➕ വരി ചേർക്കുക</button>
+            <button onclick="saveVendorMultiTransactions()" class="bg-rose-600 text-white font-bold px-4 py-1.5 rounded-lg text-xs">💾 എല്ലാവരുടെയും സേവ് ചെയ്യുക</button>
+          </div>
+        </div>
+
+        <!-- Single Statement Viewer with Print Option -->
+        <div class="border-t pt-3 space-y-3">
+          <div>
+            <label class="text-xs font-bold text-slate-600">സ്റ്റേറ്റ്‌മെന്റ് പരിശോധിക്കാൻ വെണ്ടറെ തിരഞ്ഞെടുക്കുക</label>
+            <input type="text" list="supplierList" id="inputVendor" oninput="onVendorInput()" class="w-full border rounded-xl p-2 text-xs font-bold bg-slate-50 mt-1" placeholder="പേര് ടൈപ്പ് ചെയ്യുക...">
+          </div>
+          <div id="vendorDashboard" class="hidden space-y-3">
+            <div class="printableArea space-y-3 bg-white p-2 rounded-xl">
+              <div class="bg-rose-50 border border-rose-200 p-2.5 rounded-xl flex justify-between items-center text-xs">
+                <span class="font-bold text-rose-900">നിലവിലെ ബാലൻസ്:</span>
+                <span class="font-black text-rose-800" id="vendCurrentDue">₹ 0.00</span>
+              </div>
+              <div class="flex justify-between items-center no-print">
+                <h4 class="text-xs font-bold text-slate-700 uppercase">സ്റ്റേറ്റ്‌മെന്റ്</h4>
+                <button onclick="window.print()" class="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold">🖨 പ്രിന്റ്</button>
+              </div>
+              <div class="overflow-x-auto border rounded-xl bg-white max-h-48 overflow-y-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-slate-100 border-b sticky top-0"><tr><th class="p-2">തീയതി</th><th class="p-2">വിവരണം</th><th class="p-2">രീതി</th><th class="p-2 text-right">തുക</th></tr></thead>
+                  <tbody id="vendorStatementBody"><tr><td colspan="4" class="p-2 text-center text-slate-400">വിവരങ്ങൾ ലഭ്യമല്ല.</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 3. REPORT MODULE ==================== -->
+    <div id="mainView-report" class="main-view bg-white p-5 rounded-2xl border shadow-sm space-y-4 hidden">
+      <div class="flex flex-wrap gap-2 items-center justify-between border-b pb-3 no-print">
+        <h2 class="font-bold text-slate-900 text-sm">📊 ഡെയ്‌ലി & മന്ത്ലി സ്റ്റേറ്റ്‌മെന്റ് റിപ്പോർട്ട്</h2>
+        <div class="flex gap-2 items-center">
+          <select id="reportTypeSelect" onchange="toggleReportType()" class="border rounded-xl p-2 text-xs font-bold bg-slate-50">
+            <option value="daily">ഡെയ്‌ലി റിപ്പോർട്ട്</option>
+            <option value="monthly">മന്ത്ലി റിപ്പോർട്ട്</option>
+          </select>
+          <div id="dailyInputDiv"><input type="date" id="reportDailyDate" onchange="renderReport()" class="border rounded-xl p-2 text-xs font-bold bg-slate-50"></div>
+          <div id="monthlyInputDiv" class="hidden"><input type="month" id="reportMonthlyMonth" onchange="renderReport()" class="border rounded-xl p-2 text-xs font-bold bg-slate-50"></div>
+          <button onclick="window.print()" class="bg-slate-800 text-white font-bold px-3 py-2 rounded-xl text-xs">🖨 പ്രിന്റ്</button>
+          <button onclick="sendReportWhatsApp()" class="bg-emerald-600 text-white font-bold px-3 py-2 rounded-xl text-xs">📱 WhatsApp</button>
+        </div>
+      </div>
+
+      <div id="printableReportArea" class="space-y-4">
+        <div class="text-center pb-2 border-b">
+          <h2 class="text-base font-black text-slate-900" id="reportTitleHeader">റുഗാമ സൂപ്പർമാർക്കറ്റ് - സ്റ്റേറ്റ്‌‌മെന്റ്</h2>
+          <p class="text-xs text-slate-500" id="reportDateDisplay"></p>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div class="border rounded-xl p-2.5 bg-slate-50 text-xs"><h4 class="font-bold border-b pb-1 text-center bg-slate-200 rounded">OLD</h4><div class="flex justify-between pt-1"><span>Cash:</span> <span id="boxOldCash">₹0</span></div><div class="flex justify-between"><span>Bank:</span> <span id="boxOldBank">₹0</span></div></div>
+          <div class="border rounded-xl p-2.5 bg-emerald-50 text-xs"><h4 class="font-bold border-b pb-1 text-center bg-emerald-200 rounded">HAND</h4><div class="flex justify-between pt-1"><span>Cash:</span> <span id="boxHandCash">₹0</span></div><div class="flex justify-between"><span>Bank:</span> <span id="boxHandBank">₹0</span></div><div class="flex justify-between border-t pt-1 font-black"><span>TOT:</span> <span id="boxHandTotal">₹0</span></div></div>
+          <div class="border rounded-xl p-2.5 bg-indigo-50 text-xs"><h4 class="font-bold border-b pb-1 text-center bg-indigo-200 rounded">SALE</h4><div class="flex justify-between pt-1"><span>Cash:</span> <span id="boxSaleCash">₹0</span></div><div class="flex justify-between"><span>Bank:</span> <span id="boxSaleBank">₹0</span></div><div class="flex justify-between"><span>Cr:</span> <span id="boxSaleCredit">₹0</span></div><div class="flex justify-between border-t pt-1 font-black"><span>TOT:</span> <span id="boxSaleTotal">₹0</span></div></div>
+          <div class="border rounded-xl p-2.5 bg-blue-50 text-xs"><h4 class="font-bold border-b pb-1 text-center bg-blue-200 rounded">PURCHASE</h4><div class="flex justify-between pt-1"><span>Cash:</span> <span id="boxPurCash">₹0</span></div><div class="flex justify-between"><span>Bank:</span> <span id="boxPurBank">₹0</span></div><div class="flex justify-between"><span>Cr:</span> <span id="boxPurCredit">₹0</span></div><div class="flex justify-between border-t pt-1 font-black"><span>TOT:</span> <span id="boxPurTotal">₹0</span></div></div>
+          <div class="border rounded-xl p-2.5 bg-amber-50 text-xs"><h4 class="font-bold border-b pb-1 text-center bg-amber-200 rounded">TOTAL INCOME</h4><div class="flex justify-between pt-1"><span>Cash:</span> <span id="boxIncomeCash">₹0</span></div><div class="flex justify-between"><span>Bank:</span> <span id="boxIncomeBank">₹0</span></div></div>
+          <div class="border rounded-xl p-2.5 bg-rose-50 text-xs"><h4 class="font-bold border-b pb-1 text-center bg-rose-200 rounded">TOTAL EXPENSE</h4><div class="flex justify-between pt-1"><span>Cash:</span> <span id="boxExpCash">₹0</span></div><div class="flex justify-between"><span>Bank:</span> <span id="boxExpBank">₹0</span></div></div>
+        </div>
+
+        <div class="space-y-2">
+          <h4 class="font-bold text-slate-900 text-xs uppercase">INCOME (Sales & Customer Receipts)</h4>
+          <div class="overflow-x-auto border rounded-xl bg-white"><table class="w-full text-left text-xs"><thead class="bg-slate-100 border-b"><tr><th class="p-2">NAME</th><th class="p-2">CASH</th><th class="p-2">BANK</th><th class="p-2">CREDIT</th></tr></thead><tbody id="incomeTableBody"><tr><td colspan="4" class="p-3 text-center text-slate-400">ഇടപാടുകൾ ഇല്ല.</td></tr></tbody></table></div>
+        </div>
+
+        <div class="space-y-2">
+          <h4 class="font-bold text-slate-900 text-xs uppercase">EXPENSE & PURCHASES</h4>
+          <div class="overflow-x-auto border rounded-xl bg-white"><table class="w-full text-left text-xs"><thead class="bg-slate-100 border-b"><tr><th class="p-2">NAME</th><th class="p-2">CASH</th><th class="p-2">BANK</th><th class="p-2">CREDIT</th></tr></thead><tbody id="expensePartyTableBody"><tr><td colspan="4" class="p-3 text-center text-slate-400">ഇടപാടുകൾ ഇല്ല.</td></tr></tbody></table></div>
+        </div>
+
+        <div id="monthlyPartyBalancesSection" class="space-y-3 pt-3 border-t hidden">
+          <h3 class="font-black text-slate-900 text-xs text-center uppercase">പാർട്ടി ബാലൻസ് ലിസ്റ്റ് (> ₹5)</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div><h4 class="font-bold text-amber-900 text-xs mb-1">കസ്റ്റമർ ബാലൻസ്</h4><div id="individualCustomerContainer" class="space-y-1"></div></div>
+            <div><h4 class="font-bold text-rose-900 text-xs mb-1">വെണ്ടർ ബാലൻസ്</h4><div id="individualVendorContainer" class="space-y-1"></div></div>
+            <div><h4 class="font-bold text-indigo-900 text-xs mb-1">എംപ്ലോയി ബാലൻസ്</h4><div id="individualEmployeeContainer" class="space-y-1"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 4. MASTER MODULE ==================== -->
+    <div id="mainView-master" class="main-view bg-white p-6 rounded-2xl border shadow-sm space-y-4 hidden">
+      <div class="flex flex-wrap gap-2 border-b pb-3">
+        <button onclick="switchSubMaster('parties')" id="masterBtn-parties" class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">👥 കസ്റ്റമർ & വെണ്ടർ</button>
+        <button onclick="switchSubMaster('employees')" id="masterBtn-employees" class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold">👤 എംപ്ലോയിസ്</button>
+        <button onclick="switchSubMaster('categories')" id="masterBtn-categories" class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold">💸 കാറ്റഗറികൾ</button>
+      </div>
+
+      <div id="masterView-parties" class="master-sub space-y-4">
+        <div class="flex justify-between items-center"><h3 class="font-bold text-sm">പാർട്ടി മാനേജ്മെന്റ്</h3><button onclick="openPartyModal('add')" class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">➕ പുതിയത്</button></div>
+        <div class="overflow-x-auto border rounded-xl"><table class="w-full text-left text-xs"><thead class="bg-slate-50 border-b"><tr><th class="p-2.5">തരം</th><th class="p-2.5">പേര്</th><th class="p-2.5">ബാലൻസ്</th><th class="p-2.5 text-right">പ്രവർത്തനങ്ങൾ</th></tr></thead><tbody id="partyTableBody"><tr><td colspan="4" class="p-3 text-center text-slate-400">വിവരങ്ങൾ ഇല്ല.</td></tr></tbody></table></div>
+      </div>
+
+      <div id="masterView-employees" class="master-sub space-y-4 hidden">
+        <div class="flex justify-between items-center"><h3 class="font-bold text-sm">എംപ്ലോയി മാനേജ്‌മെന്റ്</h3><button onclick="openEmployeeModal('add')" class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">➕ പുതിയത്</button></div>
+        <div class="overflow-x-auto border rounded-xl"><table class="w-full text-left text-xs"><thead class="bg-slate-50 border-b"><tr><th class="p-2.5">പേര്</th><th class="p-2.5">ശമ്പളം</th><th class="p-2.5">അഡ്വാൻസ് / ഓപ്പണിംഗ്</th><th class="p-2.5">ജോയിൻ തീയതി</th><th class="p-2.5 text-right">പ്രവർത്തനങ്ങൾ</th></tr></thead><tbody id="employeeTableBody"><tr><td colspan="5" class="p-3 text-center text-slate-400">വിവരങ്ങൾ ഇല്ല.</td></tr></tbody></table></div>
+      </div>
+
+      <div id="masterView-categories" class="master-sub space-y-4 hidden">
+        <div class="flex justify-between items-center"><h3 class="font-bold text-sm">ചിലവ് കാറ്റഗറികൾ</h3><button onclick="openCategoryModal('add')" class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">➕ പുതിയത്</button></div>
+        <div class="overflow-x-auto border rounded-xl"><table class="w-full text-left text-xs"><thead class="bg-slate-50 border-b"><tr><th class="p-2.5">കാറ്റഗറി</th><th class="p-2.5">സബ്-കാറ്റഗറി</th><th class="p-2.5 text-right">പ്രവർത്തനങ്ങൾ</th></tr></thead><tbody id="categoryTableBody"><tr><td colspan="3" class="p-3 text-center text-slate-400">വിവരങ്ങൾ ഇല്ല.</td></tr></tbody></table></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Modals for Master -->
+  <div id="partyModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border">
+      <div class="flex justify-between items-center border-b pb-3"><h3 class="font-bold text-sm" id="partyModalTitle">➕ പാർട്ടി ചേർക്കുക</h3><button onclick="closePartyModal()" class="text-slate-400 font-bold text-lg">&times;</button></div>
+      <form onsubmit="submitPartyForm(event)" class="space-y-3">
+        <input type="hidden" id="partyOriginalName">
+        <div><label class="text-xs font-bold">തരം</label><select id="partyType" class="w-full border rounded-xl p-2 text-xs mt-1 bg-white font-bold"><option value="customer">കസ്റ്റമർ</option><option value="vendor">വെണ്ടർ</option></select></div>
+        <div><label class="text-xs font-bold">പേര്</label><input type="text" id="partyName" required class="w-full border rounded-xl p-2 text-sm mt-1 bg-white font-bold"></div>
+        <div><label class="text-xs font-bold">ഓപ്പണിംഗ് ബാലൻസ് (₹)</label><input type="number" step="0.01" id="partyAmount" value="0" required class="w-full border rounded-xl p-2 text-sm mt-1 bg-white font-bold text-indigo-700"></div>
+        <div class="flex gap-2 pt-2"><button type="button" onclick="closePartyModal()" class="flex-1 bg-slate-100 py-2 rounded-xl text-xs font-bold">റദ്ദാക്കുക</button><button type="submit" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl text-xs font-bold">സേവ് ചെയ്യുക</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div id="employeeModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border">
+      <div class="flex justify-between items-center border-b pb-3"><h3 class="font-bold text-sm" id="employeeModalTitle">➕ എംപ്ലോയി ചേർക്കുക</h3><button onclick="closeEmployeeModal()" class="text-slate-400 font-bold text-lg">&times;</button></div>
+      <form onsubmit="submitEmployeeForm(event)" class="space-y-3">
+        <input type="hidden" id="empOriginalName">
+        <div><label class="text-xs font-bold">പേര്</label><input type="text" id="empName" required class="w-full border rounded-xl p-2 text-sm mt-1 bg-white font-bold"></div>
+        <div><label class="text-xs font-bold">ശമ്പളം (₹)</label><input type="number" step="0.01" id="empSalary" value="0" required class="w-full border rounded-xl p-2 text-sm mt-1 bg-white font-bold"></div>
+        <div><label class="text-xs font-bold">അഡ്വാൻസ് / ഓപ്പണിംഗ് ബാലൻസ് (₹)</label><input type="number" step="0.01" id="empAdvance" value="0" required class="w-full border rounded-xl p-2 text-sm mt-1 bg-white font-bold text-indigo-700"></div>
+        <div><label class="text-xs font-bold">ജോയിൻ തീയതി</label><input type="date" id="empJoinDate" required class="w-full border rounded-xl p-2 text-xs font-bold bg-white"></div>
+        <div class="flex gap-2 pt-2"><button type="button" onclick="closeEmployeeModal()" class="flex-1 bg-slate-100 py-2 rounded-xl text-xs font-bold">റദ്ദാക്കുക</button><button type="submit" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl text-xs font-bold">സേവ് ചെയ്യുക</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div id="categoryModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border">
+      <div class="flex justify-between items-center border-b pb-3"><h3 class="font-bold text-sm" id="categoryModalTitle">➕ കാറ്റഗറി ചേർക്കുക</h3><button onclick="closeCategoryModal()" class="text-slate-400 font-bold text-lg">&times;</button></div>
+      <form onsubmit="submitCategoryForm(event)" class="space-y-3">
+        <input type="hidden" id="catIndex">
+        <div><label class="text-xs font-bold">കാറ്റഗറി പേര്</label><input type="text" id="catName" required class="w-full border rounded-xl p-2 text-sm mt-1 bg-white font-bold"></div>
+        <div><label class="text-xs font-bold">സബ്-കാറ്റഗറി (ഒന്നിലധികം കോമ ഇടുക)</label><input type="text" id="subCatName" class="w-full border rounded-xl p-2 text-sm mt-1 bg-white" placeholder="ഉദാ: Van, Service"></div>
+        <div class="flex gap-2 pt-2"><button type="button" onclick="closeCategoryModal()" class="flex-1 bg-slate-100 py-2 rounded-xl text-xs font-bold">റദ്ദാക്കുക</button><button type="submit" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl text-xs font-bold">സേവ് ചെയ്യുക</button></div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://garpkohthpeirdhcwthk.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_TNhOZnpYuthYHmSJSlyhaw_R6RS1jcY";
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const currentMonthStr = `${yyyy}-${mm}`;
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+
+    document.getElementById('todayTextDisplay').innerText = now.toLocaleDateString('ml-IN', { dateStyle: 'full' });
+    
+    const globalDateInput = document.getElementById('globalTransactionDate');
+    globalDateInput.value = todayStr;
+
+    function getSelectedDate() {
+      return globalDateInput.value || todayStr;
+    }
+
+    let globalData = { sales: [], purchases: [], expenses: [], custPayments: [], suppPayments: [], openBalances: [], employees: [] };
+    let partyEditMode = 'add', empEditMode = 'add', catEditMode = 'add';
+
+    const defaultCategories = [
+      { category_name: 'സാലറി (Salary)', sub_category: '' },
+      { category_name: 'റന്റ് (Rent)', sub_category: '' },
+      { category_name: 'വാട്ട്-ഗോസി (VAT-GOSI)', sub_category: '' },
+      { category_name: 'കമ്പനി (Company)', sub_category: '' },
+      { category_name: 'ഇഖാമ (Iqama)', sub_category: '' },
+      { category_name: 'ഷോപ്പ് / റൂം / ഗോഡൗൺ (Shop / Room / Godown)', sub_category: '' },
+      { category_name: 'മറ്റുള്ളവ (Expense)', sub_category: '' }
+    ];
+
+    function switchMainTab(viewId) {
+      ['salepur', 'customer', 'report', 'master'].forEach(v => {
+        document.getElementById('mainView-' + v).classList.add('hidden');
+        document.getElementById('mainBtn-' + v).className = "bg-slate-100 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold transition";
+      });
+      document.getElementById('mainView-' + viewId).classList.remove('hidden');
+      document.getElementById('mainBtn-' + viewId).className = "bg-indigo-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition";
+      if(viewId === 'report') renderReport();
+      if(viewId === 'master') loadMasterData();
+    }
+
+    function switchSubSalepur(sub) {
+      ['entry', 'history'].forEach(s => {
+        document.getElementById('subView-' + s).classList.add('hidden');
+        document.getElementById('subBtn-' + s).className = "bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition";
+      });
+      document.getElementById('subView-' + sub).classList.remove('hidden');
+      document.getElementById('subBtn-' + sub).className = "bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition";
+      if(sub === 'history') renderHistoryTable();
+    }
+
+    function switchSubMaster(sub) {
+      ['parties', 'employees', 'categories'].forEach(s => {
+        document.getElementById('masterView-' + s).classList.add('hidden');
+        document.getElementById('masterBtn-' + s).className = "bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition";
+      });
+      document.getElementById('masterView-' + sub).classList.remove('hidden');
+      document.getElementById('masterBtn-' + sub).className = "bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition";
+    }
+
+    function getItemDate(item) {
+      if (item && item.date && typeof item.date === 'string') return item.date.slice(0, 10);
+      if (item && item.created_at && typeof item.created_at === 'string') return item.created_at.slice(0, 10);
+      return todayStr;
+    }
+
+    async function loadAllData() {
+      try {
+        const [resSales, resPur, resExp, resCP, resSP, resOB, resEMP] = await Promise.all([
+          client.from('sales').select('*'),
+          client.from('purchases').select('*'),
+          client.from('expenses').select('*'),
+          client.from('customer_payments').select('*'),
+          client.from('supplier_payments').select('*'),
+          client.from('opening_balances').select('*'),
+          client.from('employees').select('*')
+        ]);
+        globalData = {
+          sales: resSales.data || [], purchases: resPur.data || [], expenses: resExp.data || [],
+          custPayments: resCP.data || [], suppPayments: resSP.data || [], openBalances: resOB.data || [],
+          employees: resEMP.data || []
+        };
+        populateDropdowns();
+        renderHistoryTable();
+        renderReport();
+        loadMasterData();
+        renderInitialMultiRows();
+        loadExpenseCategories();
+        checkSalaryCategory();
+      } catch (err) { console.error("Load Error:", err); }
+    }
+
+    function loadExpenseCategories() {
+      let storedCats = JSON.parse(localStorage.getItem('custom_expense_cats') || 'null');
+      if (!storedCats) {
+        storedCats = defaultCategories;
+        localStorage.setItem('custom_expense_cats', JSON.stringify(storedCats));
+      }
+      let html = '';
+      storedCats.forEach(c => {
+        if (c.sub_category && c.sub_category.includes(',')) {
+          c.sub_category.split(',').forEach(sub => {
+            html += `<option value="${c.category_name} - ${sub.trim()}">`;
+          });
+        } else if (c.sub_category) {
+          html += `<option value="${c.category_name} - ${c.sub_category.trim()}">`;
+        } else {
+          html += `<option value="${c.category_name}">`;
+        }
+      });
+      document.getElementById('expenseCategoryList').innerHTML = html;
+    }
+
+    function renderInitialMultiRows() {
+      if(document.querySelectorAll('.cust-row').length === 0) addCustRow();
+      else toggleCustFieldsUI();
+      if(document.querySelectorAll('.vend-row').length === 0) addVendRow();
+      else toggleVendFieldsUI();
+    }
+
+    function populateDropdowns() {
+      const custSet = new Set();
+      (globalData.sales || []).forEach(s => { if(s.customer_name) custSet.add(s.customer_name.trim()); });
+      (globalData.custPayments || []).forEach(c => { if(c.customer_name) custSet.add(c.customer_name.trim()); });
+      (globalData.openBalances || []).filter(o => o.party_type === 'customer').forEach(o => { if(o.party_name) custSet.add(o.party_name.trim()); });
+      document.getElementById('customerList').innerHTML = Array.from(custSet).map(c => `<option value="${c}">`).join('');
+
+      const suppSet = new Set();
+      (globalData.purchases || []).forEach(p => { if(p.supplier_name) suppSet.add(p.supplier_name.trim()); });
+      (globalData.suppPayments || []).forEach(sp => { if(sp.supplier_name) suppSet.add(sp.supplier_name.trim()); });
+      (globalData.openBalances || []).filter(o => o.party_type === 'vendor').forEach(o => { if(o.party_name) suppSet.add(o.party_name.trim()); });
+      document.getElementById('supplierList').innerHTML = Array.from(suppSet).map(s => `<option value="${s}">`).join('');
+
+      const empSet = new Set();
+      (globalData.employees || []).forEach(e => { if(e.name) empSet.add(e.name.trim()); });
+      document.getElementById('employeeList').innerHTML = Array.from(empSet).map(e => `<option value="${e}">`).join('');
+    }
+
+    function checkSalaryCategory() {
+      const catVal = (document.getElementById('expCategory').value || '').toLowerCase();
+      const empDiv = document.getElementById('empNameDiv');
+      if (catVal.includes('സാലറി') || catVal.includes('salary') || catVal.includes('സലറി')) {
+        empDiv.classList.remove('hidden');
+      } else {
+        empDiv.classList.add('hidden');
+        document.getElementById('expEmployee').value = '';
+      }
+    }
+
+    async function updateEmpBalance() {
+      const name = document.getElementById('expEmployee').value.trim();
+      const badge = document.getElementById('empBal');
+      if(!name) { badge.innerText = ''; return; }
+      const clean = name.toLowerCase();
+      const open = (globalData.openBalances || []).filter(o => o.party_type === 'employee' && (o.party_name||'').trim().toLowerCase() === clean).reduce((a,b)=>a+Number(b.amount||0),0);
+      
+      const [selY, selM] = document.getElementById('globalTransactionDate').value.split('-').map(Number);
+      const empObj = (globalData.employees || []).find(e => (e.name||'').trim().toLowerCase() === clean);
+      const monthlySal = empObj ? Number(empObj.monthly_salary || 0) : 0;
+      let autoEarned = 0;
+      if (empObj && empObj.join_date) {
+        let checkD = new Date(empObj.join_date);
+        let asOfD = new Date(selY, selM, 0);
+        while (checkD <= asOfD) { checkD.setMonth(checkD.getMonth() + 1); if(checkD <= asOfD) autoEarned += monthlySal; }
+      }
+      const paid = (globalData.expenses || []).filter(e => e.employee_name && e.employee_name.trim().toLowerCase() === clean).reduce((a, b) => a + Number(b.amount || 0), 0);
+      const net = (open + autoEarned) - paid;
+      badge.innerText = `ബാലൻസ്: ₹ ${net.toLocaleString()}`;
+    }
+
+    async function saveSale() {
+      const date = getSelectedDate();
+      const customer_name = document.getElementById('saleCustomer').value.trim();
+      const cash = Number(document.getElementById('saleCash').value) || 0;
+      const bank = Number(document.getElementById('saleBank').value) || 0;
+      const notes = document.getElementById('saleNotes').value.trim();
+
+      if(!customer_name) { alert("കസ്റ്റമറുടെ പേര് നൽകുക!"); return; }
+      if(cash <= 0 && bank <= 0) { alert("ക്യാഷ് അല്ലെങ്കിൽ ബാങ്ക് തുക നൽകുക!"); return; }
+
+      let inserts = [];
+      if(cash > 0) inserts.push({ date, customer_name, sale_type: 'cash', payment_mode: 'cash', amount: cash, notes });
+      if(bank > 0) inserts.push({ date, customer_name, sale_type: 'cash', payment_mode: 'bank', amount: bank, notes });
+
+      const { error } = await client.from('sales').insert(inserts);
+      if(error) alert("എറർ: " + error.message);
+      else {
+        alert("സെയിൽസ് വിജയകരമായി സേവ് ചെയ്തു!");
+        document.getElementById('saleCash').value = '0';
+        document.getElementById('saleBank').value = '0';
+        document.getElementById('saleNotes').value = '';
+        loadAllData();
+      }
+    }
+
+    async function savePurchase() {
+      const date = getSelectedDate();
+      const supplier_name = document.getElementById('purSupplier').value.trim();
+      const cash = Number(document.getElementById('purCash').value) || 0;
+      const bank = Number(document.getElementById('purBank').value) || 0;
+      const notes = document.getElementById('purNotes').value.trim();
+
+      if(!supplier_name) { alert("വെണ്ടറുടെ പേര് നൽകുക!"); return; }
+      if(cash <= 0 && bank <= 0) { alert("ക്യാഷ് അല്ലെങ്കിൽ ബാങ്ക് തുക നൽകുക!"); return; }
+
+      let inserts = [];
+      if(cash > 0) inserts.push({ date, supplier_name, purchase_type: 'cash', payment_mode: 'cash', amount: cash, notes });
+      if(bank > 0) inserts.push({ date, supplier_name, purchase_type: 'cash', payment_mode: 'bank', amount: bank, notes });
+
+      const { error } = await client.from('purchases').insert(inserts);
+      if(error) alert("എറർ: " + error.message);
+      else {
+        alert("പർച്ചേസ് വിജയകരമായി സേവ് ചെയ്തു!");
+        document.getElementById('purCash').value = '0';
+        document.getElementById('purBank').value = '0';
+        document.getElementById('purNotes').value = '';
+        loadAllData();
+      }
+    }
+
+    async function saveExpense() {
+      const date = getSelectedDate();
+      const category = document.getElementById('expCategory').value.trim();
+      const employee_name = document.getElementById('expEmployee').value.trim();
+      const cash = Number(document.getElementById('expCash').value) || 0;
+      const bank = Number(document.getElementById('expBank').value) || 0;
+      const notes = document.getElementById('expNotes').value.trim();
+      if(!category) { alert("കാറ്റഗറി തിരഞ്ഞെടുക്കുക!"); return; }
+      if((category.toLowerCase().includes('സാലറി') || category.toLowerCase().includes('salary') || category.toLowerCase().includes('സലറി')) && !employee_name) { alert("എംപ്ലോയിയുടെ പേര് നൽകുക!"); return; }
+      if(cash <= 0 && bank <= 0) { alert("തുക നൽകുക!"); return; }
+      let inserts = [];
+      if(cash > 0) inserts.push({ date, category, employee_name: employee_name || null, payment_mode: 'cash', amount: cash, notes });
+      if(bank > 0) inserts.push({ date, category, employee_name: employee_name || null, payment_mode: 'bank', amount: bank, notes });
+      await client.from('expenses').insert(inserts);
+      alert("സേവ് ചെയ്തു!");
+      document.getElementById('expCash').value = '0'; document.getElementById('expBank').value = '0'; document.getElementById('expNotes').value = ''; document.getElementById('expEmployee').value = '';
+      loadAllData();
+    }
+
+    function renderHistoryTable() {
+      let combined = [];
+      (globalData.sales || []).forEach(s => combined.push({ id: s.id, table: 'sales', date: s.date || s.created_at, type: s.sale_type === 'credit' ? '🛒 ക്രെഡിറ്റ് സെയിൽസ്' : '🛒 സെയിൽസ്', name: s.customer_name || '-', mode: s.payment_mode, amount: s.amount }));
+      (globalData.purchases || []).forEach(p => combined.push({ id: p.id, table: 'purchases', date: p.date || p.created_at, type: p.purchase_type === 'credit' ? '📦 ക്രെഡിറ്റ് പർച്ചേസ്' : '📦 പർച്ചേസ്', name: p.supplier_name || '-', mode: p.payment_mode, amount: p.amount }));
+      (globalData.expenses || []).forEach(e => combined.push({ id: e.id, table: 'expenses', date: e.date || e.created_at, type: '💸 ചിലവ്', name: e.employee_name ? `${e.category} (${e.employee_name})` : e.category, mode: e.payment_mode, amount: e.amount }));
+      (globalData.custPayments || []).forEach(c => combined.push({ id: c.id, table: 'customer_payments', date: c.date || c.created_at, type: '💵 കസ്റ്റമർ തന്നത്', name: c.customer_name || '-', mode: c.payment_mode || 'cash', amount: c.amount }));
+      (globalData.suppPayments || []).forEach(sp => combined.push({ id: sp.id, table: 'supplier_payments', date: sp.date || sp.created_at, type: '💳 വെണ്ടർക്ക് കൊടുത്തത്', name: sp.supplier_name || '-', mode: sp.payment_mode || 'cash', amount: sp.amount }));
+
+      combined.sort((a,b) => new Date(b.date) - new Date(a.date));
+      let rows = '';
+      combined.forEach(item => {
+        rows += `<tr class="border-b hover:bg-slate-50"><td class="p-3">${item.date ? item.date.slice(0, 10) : '-'}</td><td class="p-3 font-bold">${item.type}</td><td class="p-3">${item.name}</td><td class="p-3 uppercase text-xs">${item.mode || '-'}</td><td class="p-3 font-bold">₹ ${Number(item.amount||0).toLocaleString()}</td><td class="p-3 text-right"><button onclick="deleteItem('${item.table}', '${item.id}')" class="bg-rose-50 text-rose-600 px-2.5 py-1 rounded text-xs font-bold border">ഡിലീറ്റ്</button></td></tr>`;
+      });
+      document.getElementById('historyTableBody').innerHTML = rows || '<tr><td colspan="6" class="p-4 text-center text-slate-400">ഇടപാടുകൾ ഒന്നും ഇല്ല.</td></tr>';
+    }
+
+    async function deleteItem(table, id) {
+      if(!confirm("ഡിലീറ്റ് ചെയ്യണോ?")) return;
+      await client.from(table).delete().eq('id', id);
+      alert("ഡിലീറ്റ് ചെയ്തു!");
+      loadAllData();
+    }
+
+    function toggleCustFieldsUI() {
+      const type = document.getElementById('custTxType').value;
+      const rows = document.querySelectorAll('.cust-row');
+      rows.forEach(r => {
+        const container = r.querySelector('.cust-fields-container');
+        if(type === 'sale_credit') {
+          container.innerHTML = `
+            <div class="grid grid-cols-12 gap-1 items-center">
+              <div class="col-span-6"><input type="number" step="0.01" placeholder="📝 കടം തുക (₹)" class="c-amt w-full border rounded p-1 text-[11px] font-bold text-amber-700"></div>
+              <div class="col-span-6"><input type="text" placeholder="വിവരണം / പ്രൂഫ് (Proof)" class="c-note w-full border rounded p-1 text-[11px]"></div>
+            </div>`;
+        } else {
+          container.innerHTML = `
+            <div class="grid grid-cols-12 gap-1 items-center">
+              <div class="col-span-4"><input type="number" step="0.01" placeholder="💵 ക്യാഷ്" class="c-cash w-full border rounded p-1 text-[11px] font-bold text-emerald-700"></div>
+              <div class="col-span-4"><input type="number" step="0.01" placeholder="🏦 ബാങ്ക്" class="c-bank w-full border rounded p-1 text-[11px] font-bold text-blue-700"></div>
+              <div class="col-span-4"><input type="text" placeholder="വിവരണം / പ്രൂഫ് (Proof)" class="c-note w-full border rounded p-1 text-[11px]"></div>
+            </div>
+          `;
+        }
+      });
+    }
+
+    function addCustRow() {
+      const container = document.getElementById('custMultiRowsContainer');
+      const row = document.createElement('div');
+      row.className = "cust-row bg-white p-2.5 rounded-lg border space-y-2";
+      row.innerHTML = `
+        <div class="flex justify-between items-center">
+          <input type="text" list="customerList" placeholder="കസ്റ്റമർ പേര്" oninput="onMultiCustInput(this)" class="c-name border rounded p-1 text-xs font-bold w-2/3 bg-slate-50">
+          <span class="c-bal text-[10px] font-bold text-amber-700"></span>
+          <button type="button" onclick="removeCustRow(this)" class="text-rose-600 font-bold text-sm px-2">&times;</button>
+        </div>
+        <div class="cust-fields-container"></div>
+      `;
+      container.appendChild(row);
+      toggleCustFieldsUI();
+    }
+
+    function removeCustRow(btn) {
+      const rows = document.querySelectorAll('.cust-row');
+      if(rows.length > 1) btn.closest('.cust-row').remove();
+    }
+
+    function onMultiCustInput(inputElem) {
+      const row = inputElem.closest('.cust-row');
+      const name = inputElem.value.trim();
+      const badge = row.querySelector('.c-bal');
+      if(!name) { badge.innerText = ''; return; }
+      const clean = name.toLowerCase();
+      const open = (globalData.openBalances || []).filter(o => o.party_type === 'customer' && (o.party_name||'').trim().toLowerCase() === clean).reduce((a,b)=>a+Number(b.amount||0),0);
+      const cred = (globalData.sales || []).filter(s => s.sale_type === 'credit' && (s.customer_name||'').trim().toLowerCase() === clean).reduce((a,b)=>a+Number(b.amount||0),0);
+      const paid = (globalData.custPayments || []).filter(c => (c.customer_name||'').trim().toLowerCase() === clean).reduce((a,b)=>a+Number(b.amount||0),0);
+      badge.innerText = `കടം: ₹ ${((open + cred) - paid).toLocaleString()}`;
+    }
+
+    async function saveCustomerMultiTransactions() {
+      const date = getSelectedDate();
+      const type = document.getElementById('custTxType').value;
+      const rows = document.querySelectorAll('.cust-row');
+      let inserts = [];
+
+      for(let r of rows) {
+        const cName = r.querySelector('.c-name').value.trim();
+        const note = r.querySelector('.c-note') ? r.querySelector('.c-note').value.trim() : '';
+        if(cName) {
+          if(type === 'sale_credit') {
+            const amt = Number(r.querySelector('.c-amt').value) || 0;
+            if(amt > 0) inserts.push({ date, customer_name: cName, sale_type: 'credit', payment_mode: 'cash', amount: amt, notes: note || 'Credit Sale' });
+          } else {
+            const cashAmt = Number(r.querySelector('.c-cash').value) || 0;
+            const bankAmt = Number(r.querySelector('.c-bank').value) || 0;
+            if(cashAmt > 0) inserts.push({ date, customer_name: cName, payment_mode: 'cash', amount: cashAmt, notes: note });
+            if(bankAmt > 0) inserts.push({ date, customer_name: cName, payment_mode: 'bank', amount: bankAmt, notes: note });
+          }
+        }
+      }
+
+      if(inserts.length === 0) { alert("പേരും തുകയും നൽകുക!"); return; }
+
+      const targetTable = type === 'sale_credit' ? 'sales' : 'customer_payments';
+      const { error } = await client.from(targetTable).insert(inserts);
+      if(error) alert("എറർ: " + error.message);
+      else {
+        alert("സേവ് ചെയ്തു!");
+        loadAllData();
+      }
+    }
+
+    function onCustomerInput() { renderCustomerDetails(document.getElementById('inputCustomer').value.trim()); }
+    function renderCustomerDetails(custName) {
+      const dashboard = document.getElementById('customerDashboard');
+      if(!custName) { dashboard.classList.add('hidden'); return; }
+      dashboard.classList.remove('hidden');
+      const clean = custName.toLowerCase();
+      const open = (globalData.openBalances || []).filter(o => o.party_type === 'customer' && (o.party_name||'').trim().toLowerCase() === clean).reduce((a,b)=>a+Number(b.amount||0),0);
+      const credSales = (globalData.sales || []).filter(s => s.sale_type === 'credit' && (s.customer_name||'').trim().toLowerCase() === clean);
+      const receipts = (globalData.custPayments || []).filter(c => (c.customer_name||'').trim().toLowerCase() === clean);
+      const due = (open + credSales.reduce((a,b)=>a+Number(b.amount||0),0)) - receipts.reduce((a,b)=>a+Number(b.amount||0),0);
+      document.getElementById('custCurrentDue').innerText = `₹ ${due.toLocaleString()}`;
+      let rows = open !== 0 ? `<tr class="border-b bg-slate-50"><td class="p-2">-</td><td class="p-2 font-bold">Opening Balance</td><td class="p-2">-</td><td class="p-2 text-right font-bold">₹ ${open.toLocaleString()}</td></tr>` : '';
+      let combined = [];
+      credSales.forEach(s => combined.push({ date: getItemDate(s), notes: s.notes || 'Credit Sale', mode: s.payment_mode || 'credit', amount: s.amount }));
+      receipts.forEach(c => combined.push({ date: getItemDate(c), notes: c.notes || 'Receipt', mode: c.payment_mode || 'cash', amount: c.amount }));
+      combined.sort((a,b) => new Date(a.date) - new Date(b.date));
+      combined.forEach(item => { rows += `<tr class="border-b hover:bg-slate-50"><td class="p-2">${item.date}</td><td class="p-2 font-bold">${item.notes}</td><td class="p-2 uppercase text-[10px]">${item.mode}</td><td class="p-2 text-right font-bold">₹ ${Number(item.amount||0).toLocaleString()}</td></tr>`; });
+      document.getElementById('customerStatementBody').innerHTML = rows || '<tr><td colspan="4" class="p-3 text-center text-slate-400">വിവരങ്ങൾ ലഭ്യമല്ല.</td></tr>';
+    }
+
+    function toggleVendFieldsUI() {
+      const type = document.getElementById('vendTxType').value;
+      const rows = document.querySelectorAll('.vend-row');
+      rows.forEach(r => {
+        const container = r.querySelector('.vend-fields-container');
+        if(type === 'purchase_credit') {
+          container.innerHTML = `<div class="col-span-12"><input type="number" step="0.01" placeholder="📝 കടം തുക (₹)" class="v-amt w-full border rounded p-1 text-[11px] font-bold text-rose-700"></div>`;
+        } else {
+          container.innerHTML = `
+            <div class="grid grid-cols-12 gap-1 items-center">
+              <div class="col-span-4"><input type="number" step="0.01" placeholder="💵 ക്യാഷ്" class="v-cash w-full border rounded p-1 text-[11px] font-bold text-emerald-700"></div>
+              <div class="col-span-4"><input type="number" step="0.01" placeholder="🏦 ബാങ്ക്" class="v-bank w-full border rounded p-1 text-[11px] font-bold text-blue-700"></div>
+              <div class="col-span-4"><input type="text" placeholder="വിവരണം" class="v-note w-full border rounded p-1 text-[11px]"></div>
+            </div>
+          `;
+        }
+      });
+    }
+
+    function addVendRow() {
+      const container = document.getElementById('vendMultiRowsContainer');
+      const row = document.createElement('div');
+      row.className = "vend-row bg-white p-2.5 rounded-lg border space-y-2";
+      row.innerHTML = `
+        <div class="flex justify-between items-center">
+          <input type="text" list="supplierList" placeholder="വെണ്ടർ പേര്" oninput="onMultiVendInput(this)" class="v-name border rounded p-1 text-xs font-bold w-2/3 bg-slate-50">
+          <span class="v-bal text-[10px] font-bold text-rose-700"></span>
+          <button type="button" onclick="removeVendRow(this)" class="text-rose-600 font-bold text-sm px-2">&times;</button>
+        </div>
+        <div class="vend-fields-container"></div>
+      `;
+      container.appendChild(row);
+      toggleVendFieldsUI();
+    }
+
+    function removeVendRow(btn) {
+      const rows = document.querySelectorAll('.vend-row');
+      if(rows.length > 1) btn.closest('.vend-row').remove();
+    }
+
+    function onMultiVendInput(inputElem) {
+      const row = inputElem.closest('.vend-row');
+      const name = inputElem.value.trim();
+      const badge = row.querySelector('.v-bal');
+      if(!name) { badge.innerText = ''; return; }
+      const clean = name.toLowerCase();
+      const open = (globalData.openBalances || []).filter(o => o.party_type === 'vendor' && (o.party_name||'').trim().toLowerCase() === clean).reduce((a,b)=>a+Number(b.amount||0),0);
+      const cred = (globalData.purchases || []).filter(p => p.purchase_type === 'credit' && (p.supplier_name||'').trim().toLowerCase() === clean).reduce((a,b)=>a+Number(b.amount||0),0);
+      const paid = (globalData.suppPayments || []).filter(s => (s.supplier_name||'').trim().toLowerCase() === clean).reduce((a,b)=>a+Number(b.amount||0),0);
+      badge.innerText = `ബാലൻസ്: ₹ ${((open + cred) - paid).toLocaleString()}`;
+    }
+
+    async function saveVendorMultiTransactions() {
+      const date = getSelectedDate();
+      const type = document.getElementById('vendTxType').value;
+      const rows = document.querySelectorAll('.vend-row');
+      let inserts = [];
+
+      for(let r of rows) {
+        const sName = r.querySelector('.v-name').value.trim();
+        if(sName) {
+          if(type === 'purchase_credit') {
+            const amt = Number(r.querySelector('.v-amt').value) || 0;
+            if(amt > 0) inserts.push({ date, supplier_name: sName, purchase_type: 'credit', payment_mode: 'cash', amount: amt, notes: 'Credit Purchase' });
+          } else {
+            const cashAmt = Number(r.querySelector('.v-cash').value) || 0;
+            const bankAmt = Number(r.querySelector('.v-bank').value) || 0;
+            const note = r.querySelector('.v-note').value.trim();
+            if(cashAmt > 0) inserts.push({ date, supplier_name: sName, payment_mode: 'cash', amount: cashAmt, notes: note });
+            if(bankAmt > 0) inserts.push({ date, supplier_name: sName, payment_mode: 'bank', amount: bankAmt, notes: note });
+          }
+        }
+      }
+
+      if(inserts.length === 0) { alert("പേരും തുകയും നൽകുക!"); return; }
+
+      const targetTable = type === 'purchase_credit' ? 'purchases' : 'supplier_payments';
+      const { error } = await client.from(targetTable).insert(inserts);
+      if(error) alert("എറർ: " + error.message);
+      else {
+        alert("സേവ് ചെയ്തു!");
+        loadAllData();
+      }
+    }
+
+    function onVendorInput() { renderVendorDetails(document.getElementById('inputVendor').value.trim()); }
+    function renderVendorDetails(suppName) {
+      const dashboard = document.getElementById('vendorDashboard');
+      if(!suppName) { dashboard.classList.add('hidden'); return; }
+      dashboard.classList.remove('hidden');
+      const clean = suppName.toLowerCase();
+      const open = (globalData.openBalances || []).filter(o => o.party_type === 'vendor' && (o.party_name||'').trim().toLowerCase() === clean).reduce((a,b)=>a+Number(b.amount||0),0);
+      const credPurchases = (globalData.purchases || []).filter(p => p.purchase_type === 'credit' && (p.supplier_name||'').trim().toLowerCase() === clean);
+      const payments = (globalData.suppPayments || []).filter(s => (s.supplier_name||'').trim().toLowerCase() === clean);
+      const due = (open + credPurchases.reduce((a,b)=>a+Number(b.amount||0),0)) - payments.reduce((a,b)=>a+Number(b.amount||0),0);
+      document.getElementById('vendCurrentDue').innerText = `₹ ${due.toLocaleString()}`;
+      let rows = open !== 0 ? `<tr class="border-b bg-slate-50"><td class="p-2">-</td><td class="p-2 font-bold">Opening Balance</td><td class="p-2">-</td><td class="p-2 text-right font-bold">₹ ${open.toLocaleString()}</td></tr>` : '';
+      let combined = [];
+      credPurchases.forEach(p => combined.push({ date: getItemDate(p), notes: p.notes || 'Credit Purchase', mode: p.payment_mode || 'credit', amount: p.amount }));
+      payments.forEach(s => combined.push({ date: getItemDate(s), notes: s.notes || 'Payment', mode: s.payment_mode || 'cash', amount: s.amount }));
+      combined.sort((a,b) => new Date(a.date) - new Date(b.date));
+      combined.forEach(item => { rows += `<tr class="border-b hover:bg-slate-50"><td class="p-2">${item.date}</td><td class="p-2 font-bold">${item.notes}</td><td class="p-2 uppercase text-[10px]">${item.mode}</td><td class="p-2 text-right font-bold">₹ ${Number(item.amount||0).toLocaleString()}</td></tr>`; });
+      document.getElementById('vendorStatementBody').innerHTML = rows || '<tr><td colspan="4" class="p-3 text-center text-slate-400">വിവരങ്ങൾ ലഭ്യമല്ല.</td></tr>';
+    }
+
+    // Report Module Functions
+    function toggleReportType() {
+      const type = document.getElementById('reportTypeSelect').value;
+      if (type === 'daily') {
+        document.getElementById('dailyInputDiv').classList.remove('hidden');
+        document.getElementById('monthlyInputDiv').classList.add('hidden');
+        document.getElementById('monthlyPartyBalancesSection').classList.add('hidden');
+      } else {
+        document.getElementById('dailyInputDiv').classList.add('hidden');
+        document.getElementById('monthlyInputDiv').classList.remove('hidden');
+        document.getElementById('monthlyPartyBalancesSection').classList.remove('hidden');
+      }
+      renderReport();
+    }
+    function renderReport() {
+      if (document.getElementById('reportTypeSelect').value === 'daily') renderDailyReport();
+      else renderMonthlyReport();
+    }
+
+    function renderDailyReport() {
+      const selDate = document.getElementById('reportDailyDate').value || todayStr;
+      document.getElementById('reportTitleHeader').innerText = "റുഗാമ സൂപ്പർമാർക്കറ്റ് - ഡെയ്‌ലി സ്റ്റേറ്റ്‌മെന്റ്";
+      document.getElementById('reportDateDisplay').innerText = `Report Date: ${selDate}`;
+
+      const prevDateObj = new Date(selDate);
+      prevDateObj.setDate(prevDateObj.getDate() - 1);
+      const prevDateStr = `${prevDateObj.getFullYear()}-${String(prevDateObj.getMonth() + 1).padStart(2, '0')}-${String(prevDateObj.getDate()).padStart(2, '0')}`;
+
+      const cashOpeningTotal = (globalData.openBalances || []).filter(o => o.party_type === 'cash').reduce((a,b)=>a+Number(b.amount||0),0);
+      const bankOpeningTotal = (globalData.openBalances || []).filter(o => o.party_type === 'bank').reduce((a,b)=>a+Number(b.amount||0),0);
+
+      const pastSales = (globalData.sales || []).filter(s => getItemDate(s) <= prevDateStr);
+      const pastPur = (globalData.purchases || []).filter(p => getItemDate(p) <= prevDateStr);
+      const pastExp = (globalData.expenses || []).filter(e => getItemDate(e) <= prevDateStr);
+      const pastCP = (globalData.custPayments || []).filter(c => getItemDate(c) <= prevDateStr);
+      const pastSP = (globalData.suppPayments || []).filter(s => getItemDate(s) <= prevDateStr);
+
+      const pastCashIn = cashOpeningTotal + pastSales.filter(s => s.payment_mode === 'cash' && s.sale_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0) + pastCP.filter(c => c.payment_mode === 'cash').reduce((a,b)=>a+Number(b.amount||0),0) + pastExp.filter(e => e.category === 'Bank Withdrawal' && e.payment_mode === 'bank').reduce((a,b)=>a+Number(b.amount||0),0);
+      const pastCashOut = pastPur.filter(p => p.payment_mode === 'cash' && p.purchase_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0) + pastSP.filter(s => s.payment_mode === 'cash').reduce((a,b)=>a+Number(b.amount||0),0) + pastExp.filter(e => e.category !== 'Bank Deposit' && e.category !== 'Bank Withdrawal' && e.payment_mode === 'cash').reduce((a,b)=>a+Number(b.amount||0),0);
+      
+      const pastBankIn = bankOpeningTotal + pastSales.filter(s => s.payment_mode === 'bank' && s.sale_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0) + pastCP.filter(c => c.payment_mode === 'bank').reduce((a,b)=>a+Number(b.amount||0),0) + pastExp.filter(e => e.category === 'Bank Deposit' && e.payment_mode === 'cash').reduce((a,b)=>a+Number(b.amount||0),0);
+      const pastBankOut = pastPur.filter(p => p.payment_mode === 'bank' && p.purchase_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0) + pastSP.filter(s => s.payment_mode === 'bank').reduce((a,b)=>a+Number(b.amount||0),0) + pastExp.filter(e => e.category !== 'Bank Deposit' && e.category !== 'Bank Withdrawal' && e.payment_mode === 'bank').reduce((a,b)=>a+Number(b.amount||0),0);
+
+      document.getElementById('boxOldCash').innerText = '₹ ' + (pastCashIn - pastCashOut).toLocaleString();
+      document.getElementById('boxOldBank').innerText = '₹ ' + (pastBankIn - pastBankOut).toLocaleString();
+
+      const daySales = (globalData.sales || []).filter(s => getItemDate(s) === selDate);
+      const dayPur = (globalData.purchases || []).filter(p => getItemDate(p) === selDate);
+      const dayCP = (globalData.custPayments || []).filter(c => getItemDate(c) === selDate);
+      const daySP = (globalData.suppPayments || []).filter(s => getItemDate(s) === selDate);
+      const dayExp = (globalData.expenses || []).filter(e => getItemDate(e) === selDate);
+
+      const cashSale = daySales.filter(s => s.payment_mode === 'cash' && s.sale_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0);
+      const bankSale = daySales.filter(s => s.payment_mode === 'bank' && s.sale_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0);
+      const creditSale = daySales.filter(s => s.sale_type === 'credit').reduce((a,b)=>a+Number(b.amount||0),0);
+
+      const cashPur = dayPur.filter(p => p.payment_mode === 'cash' && p.purchase_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0);
+      const bankPur = dayPur.filter(p => p.payment_mode === 'bank' && p.purchase_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0);
+      const creditPur = dayPur.filter(p => p.purchase_type === 'credit').reduce((a,b)=>a+Number(b.amount||0),0);
+
+      document.getElementById('boxSaleCash').innerText = '₹ ' + cashSale.toLocaleString();
+      document.getElementById('boxSaleBank').innerText = '₹ ' + bankSale.toLocaleString();
+      document.getElementById('boxSaleCredit').innerText = '₹ ' + creditSale.toLocaleString();
+      document.getElementById('boxSaleTotal').innerText = '₹ ' + (cashSale + bankSale + creditSale).toLocaleString();
+
+      document.getElementById('boxPurCash').innerText = '₹ ' + cashPur.toLocaleString();
+      document.getElementById('boxPurBank').innerText = '₹ ' + bankPur.toLocaleString();
+      document.getElementById('boxPurCredit').innerText = '₹ ' + creditPur.toLocaleString();
+      document.getElementById('boxPurTotal').innerText = '₹ ' + (cashPur + bankPur + creditPur).toLocaleString();
+
+      const allSalesAsOf = (globalData.sales || []).filter(s => getItemDate(s) <= selDate);
+      const allPurAsOf = (globalData.purchases || []).filter(p => getItemDate(p) <= selDate);
+      const allExpAsOf = (globalData.expenses || []).filter(e => getItemDate(e) <= selDate);
+      const allCPAsOf = (globalData.custPayments || []).filter(c => getItemDate(c) <= selDate);
+      const allSPAsOf = (globalData.suppPayments || []).filter(s => getItemDate(s) <= selDate);
+
+      const totalCashIn = cashOpeningTotal + allSalesAsOf.filter(s => s.payment_mode === 'cash' && s.sale_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0) + allCPAsOf.filter(c => c.payment_mode === 'cash').reduce((a,b)=>a+Number(b.amount||0),0);
+      const totalCashOut = allPurAsOf.filter(p => p.payment_mode === 'cash' && p.purchase_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0) + allSPAsOf.filter(s => s.payment_mode === 'cash').reduce((a,b)=>a+Number(b.amount||0),0) + allExpAsOf.filter(e => e.payment_mode === 'cash').reduce((a,b)=>a+Number(b.amount||0),0);
+      const cashInHand = totalCashIn - totalCashOut;
+
+      const totalBankIn = bankOpeningTotal + allSalesAsOf.filter(s => s.payment_mode === 'bank' && s.sale_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0) + allCPAsOf.filter(c => c.payment_mode === 'bank').reduce((a,b)=>a+Number(b.amount||0),0);
+      const totalBankOut = allPurAsOf.filter(p => p.payment_mode === 'bank' && p.purchase_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0) + allSPAsOf.filter(s => s.payment_mode === 'bank').reduce((a,b)=>a+Number(b.amount||0),0) + allExpAsOf.filter(e => e.payment_mode === 'bank').reduce((a,b)=>a+Number(b.amount||0),0);
+      const bankBal = totalBankIn - totalBankOut;
+
+      document.getElementById('boxHandCash').innerText = '₹ ' + cashInHand.toLocaleString();
+      document.getElementById('boxHandBank').innerText = '₹ ' + bankBal.toLocaleString();
+      document.getElementById('boxHandTotal').innerText = '₹ ' + (cashInHand + bankBal).toLocaleString();
+
+      const dayIncomeCash = cashSale + dayCP.filter(c => c.payment_mode === 'cash').reduce((a,b)=>a+Number(b.amount||0),0);
+      const dayIncomeBank = bankSale + dayCP.filter(c => c.payment_mode === 'bank').reduce((a,b)=>a+Number(b.amount||0),0);
+      document.getElementById('boxIncomeCash').innerText = '₹ ' + dayIncomeCash.toLocaleString();
+      document.getElementById('boxIncomeBank').innerText = '₹ ' + dayIncomeBank.toLocaleString();
+
+      const dayExpCash = cashPur + daySP.filter(s => s.payment_mode === 'cash').reduce((a,b)=>a+Number(b.amount||0),0) + dayExp.filter(e => e.payment_mode === 'cash').reduce((a,b)=>a+Number(b.amount||0),0);
+      const dayExpBank = bankPur + daySP.filter(s => s.payment_mode === 'bank').reduce((a,b)=>a+Number(b.amount||0),0) + dayExp.filter(e => e.payment_mode === 'bank').reduce((a,b)=>a+Number(b.amount||0),0);
+      document.getElementById('boxExpCash').innerText = '₹ ' + dayExpCash.toLocaleString();
+      document.getElementById('boxExpBank').innerText = '₹ ' + dayExpBank.toLocaleString();
+
+      renderTables(daySales, dayPur, dayCP, daySP, dayExp);
+    }
+
+    function renderMonthlyReport() {
+      const selMonth = document.getElementById('reportMonthlyMonth').value || currentMonthStr;
+      document.getElementById('reportTitleHeader').innerText = "റുഗാമ സൂപ്പർമാർക്കറ്റ് - മന്ത്ലി സ്റ്റേറ്റ്‌മെന്റ്";
+      document.getElementById('reportDateDisplay').innerText = `Report Month: ${selMonth}`;
+
+      const [selY, selM] = selMonth.split('-').map(Number);
+      const lastDayOfMonth = `${selY}-${String(selM).padStart(2, '0')}-${new Date(selY, selM, 0).getDate()}`;
+
+      let prevM = selM - 1;
+      let prevY = selY;
+      if (prevM === 0) { prevM = 12; prevY--; }
+      const prevMonthStr = `${prevY}-${String(prevM).padStart(2, '0')}`;
+
+      const cashOpeningTotal = (globalData.openBalances || []).filter(o => o.party_type === 'cash').reduce((a,b)=>a+Number(b.amount||0),0);
+      const bankOpeningTotal = (globalData.openBalances || []).filter(o => o.party_type === 'bank').reduce((a,b)=>a+Number(b.amount||0),0);
+
+      const pastSales = (globalData.sales || []).filter(s => getItemDate(s).slice(0, 7) <= prevMonthStr);
+      const pastPur = (globalData.purchases || []).filter(p => getItemDate(p).slice(0, 7) <= prevMonthStr);
+      const pastExp = (globalData.expenses || []).filter(e => getItemDate(e).slice(0, 7) <= prevMonthStr);
+      const pastCP = (globalData.custPayments || []).filter(c => getItemDate(c).slice(0, 7) <= prevMonthStr);
+      const pastSP = (globalData.suppPayments || []).filter(s => getItemDate(s).slice(0, 7) <= prevMonthStr);
+
+      const pastCashIn = cashOpeningTotal + pastSales.filter(s => s.payment_mode === 'cash' && s.sale_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0) + pastCP.filter(c => c.payment_mode === 'cash').reduce((a,b)=>a+Number(b.amount||0),0);
+      const pastCashOut = pastPur.filter(p => p.payment_mode === 'cash' && p.purchase_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0) + pastSP.filter(s => s.payment_mode === 'cash').reduce((a,b)=>a+Number(b.amount||0),0) + pastExp.filter(e => e.payment_mode === 'cash').reduce((a,b)=>a+Number(b.amount||0),0);
+      
+      const pastBankIn = bankOpeningTotal + pastSales.filter(s => s.payment_mode === 'bank' && s.sale_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0) + pastCP.filter(c => c.payment_mode === 'bank').reduce((a,b)=>a+Number(b.amount||0),0);
+      const pastBankOut = pastPur.filter(p => p.payment_mode === 'bank' && p.purchase_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0) + pastSP.filter(s => s.payment_mode === 'bank').reduce((a,b)=>a+Number(b.amount||0),0) + pastExp.filter(e => e.payment_mode === 'bank').reduce((a,b)=>a+Number(b.amount||0),0);
+
+      document.getElementById('boxOldCash').innerText = '₹ ' + (pastCashIn - pastCashOut).toLocaleString();
+      document.getElementById('boxOldBank').innerText = '₹ ' + (pastBankIn - pastBankOut).toLocaleString();
+
+      const mSales = (globalData.sales || []).filter(s => getItemDate(s).slice(0, 7) === selMonth);
+      const mPur = (globalData.purchases || []).filter(p => getItemDate(p).slice(0, 7) === selMonth);
+      const mCP = (globalData.custPayments || []).filter(c => getItemDate(c).slice(0, 7) === selMonth);
+      const mSP = (globalData.suppPayments || []).filter(s => getItemDate(s).slice(0, 7) === selMonth);
+      const mExp = (globalData.expenses || []).filter(e => getItemDate(e).slice(0, 7) === selMonth);
+
+      const mCashSale = mSales.filter(s => s.payment_mode === 'cash' && s.sale_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0);
+      const mBankSale = mSales.filter(s => s.payment_mode === 'bank' && s.sale_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0);
+      const mCreditSale = mSales.filter(s => s.sale_type === 'credit').reduce((a,b)=>a+Number(b.amount||0),0);
+
+      const mCashPur = mPur.filter(p => p.payment_mode === 'cash' && p.purchase_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0);
+      const mBankPur = mPur.filter(p => p.payment_mode === 'bank' && p.purchase_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0);
+      const mCreditPur = mPur.filter(p => p.purchase_type === 'credit').reduce((a,b)=>a+Number(b.amount||0),0);
+
+      document.getElementById('boxSaleCash').innerText = '₹ ' + mCashSale.toLocaleString();
+      document.getElementById('boxSaleBank').innerText = '₹ ' + mBankSale.toLocaleString();
+      document.getElementById('boxSaleCredit').innerText = '₹ ' + mCreditSale.toLocaleString();
+      document.getElementById('boxSaleTotal').innerText = '₹ ' + (mCashSale + mBankSale + mCreditSale).toLocaleString();
+
+      document.getElementById('boxPurCash').innerText = '₹ ' + mCashPur.toLocaleString();
+      document.getElementById('boxPurBank').innerText = '₹ ' + mBankPur.toLocaleString();
+      document.getElementById('boxPurCredit').innerText = '₹ ' + mCreditPur.toLocaleString();
+      document.getElementById('boxPurTotal').innerText = '₹ ' + (mCashPur + mBankPur + mCreditPur).toLocaleString();
+
+      const allSalesAsOf = (globalData.sales || []).filter(s => getItemDate(s) <= lastDayOfMonth);
+      const allPurAsOf = (globalData.purchases || []).filter(p => getItemDate(p) <= lastDayOfMonth);
+      const allExpAsOf = (globalData.expenses || []).filter(e => getItemDate(e) <= lastDayOfMonth);
+      const allCPAsOf = (globalData.custPayments || []).filter(c => getItemDate(c) <= lastDayOfMonth);
+      const allSPAsOf = (globalData.suppPayments || []).filter(s => getItemDate(s) <= lastDayOfMonth);
+
+      const totalCashIn = cashOpeningTotal + allSalesAsOf.filter(s => s.payment_mode === 'cash' && s.sale_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0) + allCPAsOf.filter(c => c.payment_mode === 'cash').reduce((a,b)=>a+Number(b.amount||0),0);
+      const totalCashOut = allPurAsOf.filter(p => p.payment_mode === 'cash' && p.purchase_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0) + allSPAsOf.filter(s => s.payment_mode === 'cash').reduce((a,b)=>a+Number(b.amount||0),0) + allExpAsOf.filter(e => e.payment_mode === 'cash').reduce((a,b)=>a+Number(b.amount||0),0);
+      const cashInHandMonthEnd = totalCashIn - totalCashOut;
+
+      const totalBankIn = bankOpeningTotal + allSalesAsOf.filter(s => s.payment_mode === 'bank' && s.sale_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0) + allCPAsOf.filter(c => c.payment_mode === 'bank').reduce((a,b)=>a+Number(b.amount||0),0);
+      const totalBankOut = allPurAsOf.filter(p => p.payment_mode === 'bank' && p.purchase_type !== 'credit').reduce((a,b)=>a+Number(b.amount||0),0) + allSPAsOf.filter(s => s.payment_mode === 'bank').reduce((a,b)=>a+Number(b.amount||0),0) + allExpAsOf.filter(e => e.payment_mode === 'bank').reduce((a,b)=>a+Number(b.amount||0),0);
+      const bankBalMonthEnd = totalBankIn - totalBankOut;
+
+      document.getElementById('boxHandCash').innerText = '₹ ' + cashInHandMonthEnd.toLocaleString();
+      document.getElementById('boxHandBank').innerText = '₹ ' + bankBalMonthEnd.toLocaleString();
+      document.getElementById('boxHandTotal').innerText = '₹ ' + (cashInHandMonthEnd + bankBalMonthEnd).toLocaleString();
+
+      const mIncomeCash = mCashSale + mCP.filter(c => c.payment_mode === 'cash').reduce((a,b)=>a+Number(b.amount||0),0);
+      const mIncomeBank = mBankSale + mCP.filter(c => c.payment_mode === 'bank').reduce((a,b)=>a+Number(b.amount||0),0);
+      document.getElementById('boxIncomeCash').innerText = '₹ ' + mIncomeCash.toLocaleString();
+      document.getElementById('boxIncomeBank').innerText = '₹ ' + mIncomeBank.toLocaleString();
+
+      const mExpCash = mCashPur + mSP.filter(s => s.payment_mode === 'cash').reduce((a,b)=>a+Number(b.amount||0),0) + mExp.filter(e => e.payment_mode === 'cash').reduce((a,b)=>a+Number(b.amount||0),0);
+      const mExpBank = mBankPur + mSP.filter(s => s.payment_mode === 'bank').reduce((a,b)=>a+Number(b.amount||0),0) + mExp.filter(e => e.payment_mode === 'bank').reduce((a,b)=>a+Number(b.amount||0),0);
+      document.getElementById('boxExpCash').innerText = '₹ ' + mExpCash.toLocaleString();
+      document.getElementById('boxExpBank').innerText = '₹ ' + mExpBank.toLocaleString();
+
+      renderPartyBalances(lastDayOfMonth);
+      renderTables(mSales, mPur, mCP, mSP, mExp);
+    }
+
+    function renderPartyBalances(asOfDate) {
+      const allSalesAsOf = (globalData.sales || []).filter(s => getItemDate(s) <= asOfDate);
+      const allPurAsOf = (globalData.purchases || []).filter(p => getItemDate(p) <= asOfDate);
+      const allCPAsOf = (globalData.custPayments || []).filter(c => getItemDate(c) <= asOfDate);
+      const allSPAsOf = (globalData.suppPayments || []).filter(s => getItemDate(s) <= asOfDate);
+
+      let custNames = new Set();
+      (globalData.sales || []).forEach(s => { if(s.customer_name) custNames.add(s.customer_name.trim()); });
+      (globalData.custPayments || []).forEach(c => { if(c.customer_name) custNames.add(c.customer_name.trim()); });
+      (globalData.openBalances || []).filter(o => o.party_type === 'customer').forEach(o => { if(o.party_name) custNames.add(o.party_name.trim()); });
+
+      let custHtml = '';
+      let totalCustDueVal = 0;
+      Array.from(custNames).sort().forEach(cName => {
+        const clean = cName.toLowerCase();
+        const open = (globalData.openBalances || []).filter(o => o.party_type === 'customer' && (o.party_name||'').trim().toLowerCase() === clean).reduce((a,b)=>a+Number(b.amount||0),0);
+        const cred = allSalesAsOf.filter(s => s.sale_type === 'credit' && (s.customer_name||'').trim().toLowerCase() === clean).reduce((a,b)=>a+Number(b.amount||0),0);
+        const paid = allCPAsOf.filter(c => (c.customer_name||'').trim().toLowerCase() === clean).reduce((a,b)=>a+Number(b.amount||0),0);
+        const due = (open + cred) - paid;
+        if (due > 5) {
+          totalCustDueVal += due;
+          custHtml += `<div class="flex justify-between items-center p-1.5 border rounded bg-slate-50 text-xs"><span class="font-bold truncate">${cName}</span><span class="font-black text-amber-800">₹ ${due.toLocaleString()}</span></div>`;
+        }
+      });
+      document.getElementById('individualCustomerContainer').innerHTML = custHtml || '<p class="text-xs text-slate-400">ബാലൻസ് ഇല്ല.</p>';
+      window.calculatedTotalCustDue = totalCustDueVal;
+
+      let suppNames = new Set();
+      (globalData.purchases || []).forEach(p => { if(p.supplier_name) suppNames.add(p.supplier_name.trim()); });
+      (globalData.suppPayments || []).forEach(sp => { if(sp.supplier_name) suppNames.add(sp.supplier_name.trim()); });
+      (globalData.openBalances || []).filter(o => o.party_type === 'vendor').forEach(o => { if(o.party_name) suppNames.add(o.party_name.trim()); });
+
+      let suppHtml = '';
+      let totalSuppDueVal = 0;
+      Array.from(suppNames).sort().forEach(sName => {
+        const clean = sName.toLowerCase();
+        const open = (globalData.openBalances || []).filter(o => o.party_type === 'vendor' && (o.party_name||'').trim().toLowerCase() === clean).reduce((a,b)=>a+Number(b.amount||0),0);
+        const cred = allPurAsOf.filter(p => p.purchase_type === 'credit' && (p.supplier_name||'').trim().toLowerCase() === clean).reduce((a,b)=>a+Number(b.amount||0),0);
+        const paid = allSPAsOf.filter(s => (s.supplier_name||'').trim().toLowerCase() === clean).reduce((a,b)=>a+Number(b.amount||0),0);
+        const due = (open + cred) - paid;
+        if (due > 5) {
+          totalSuppDueVal += due;
+          suppHtml += `<div class="flex justify-between items-center p-1.5 border rounded bg-slate-50 text-xs"><span class="font-bold truncate">${sName}</span><span class="font-black text-rose-800">₹ ${due.toLocaleString()}</span></div>`;
+        }
+      });
+      document.getElementById('individualVendorContainer').innerHTML = suppHtml || '<p class="text-xs text-slate-400">ബാലൻസ് ഇല്ല.</p>';
+      window.calculatedTotalSuppDue = totalSuppDueVal;
+
+      let empHtml = '';
+      let totalEmpDueVal = 0;
+      const [selY, selM] = document.getElementById('reportMonthlyMonth').value.split('-').map(Number);
+      (globalData.employees || []).forEach(emp => {
+        const clean = (emp.name || '').trim().toLowerCase();
+        if(!clean) return;
+        const monthlySal = Number(emp.monthly_salary || 0);
+        let autoEarned = 0;
+        if (emp.join_date) {
+          let checkD = new Date(emp.join_date);
+          let asOfD = new Date(selY, selM, 0);
+          while (checkD <= asOfD) { checkD.setMonth(checkD.getMonth() + 1); if(checkD <= asOfD) autoEarned += monthlySal; }
+        }
+        const openAdv = (globalData.openBalances || []).filter(o => o.party_type === 'employee' && (o.party_name||'').trim().toLowerCase() === clean).reduce((a,b)=>a+Number(b.amount||0),0);
+        const paid = (globalData.expenses || []).filter(e => getItemDate(e) <= asOfDate && e.employee_name && e.employee_name.trim().toLowerCase() === clean).reduce((a, b) => a + Number(b.amount || 0), 0);
+        const net = (openAdv + autoEarned) - paid;
+        if (net > 5) {
+          totalEmpDueVal += net;
+          empHtml += `<div class="flex justify-between items-center p-1.5 border rounded bg-slate-50 text-xs"><span class="font-bold truncate">${emp.name}</span><span class="font-black text-indigo-800">₹ ${net.toLocaleString()}</span></div>`;
+        }
+      });
+      document.getElementById('individualEmployeeContainer').innerHTML = empHtml || '<p class="text-xs text-slate-400">ബാലൻസ് ഇല്ല.</p>';
+      window.calculatedTotalEmpDue = totalEmpDueVal;
+    }
+
+    function renderTables(salesList, purList, cpList, spList, expList) {
+      let incomeMap = {};
+      salesList.forEach(s => { let n = (s.customer_name || 'Walk-in').trim(); if(!incomeMap[n]) incomeMap[n] = {c:0,b:0,cr:0}; if(s.sale_type==='credit') incomeMap[n].cr+=Number(s.amount||0); else if(s.payment_mode==='cash') incomeMap[n].c+=Number(s.amount||0); else incomeMap[n].b+=Number(s.amount||0); });
+      cpList.forEach(c => { let n = (c.customer_name || 'Customer').trim(); if(!incomeMap[n]) incomeMap[n] = {c:0,b:0,cr:0}; if(c.payment_mode==='cash') incomeMap[n].c+=Number(c.amount||0); else incomeMap[n].b+=Number(c.amount||0); });
+      
+      let iRows = '';
+      for(let n in incomeMap) { let i = incomeMap[n]; iRows += `<tr class="border-b"><td class="p-2 font-bold">${n}</td><td class="p-2">${i.c>0?'₹'+i.c:'-'}</td><td class="p-2">${i.b>0?'₹'+i.b:'-'}</td><td class="p-2">${i.cr>0?'₹'+i.cr:'-'}</td></tr>`; }
+      document.getElementById('incomeTableBody').innerHTML = iRows || '<tr><td colspan="4" class="p-2 text-center text-slate-400">ഇടപാടുകൾ ഇല്ല.</td></tr>';
+
+      let expMap = {};
+      purList.forEach(p => { let n = (p.supplier_name || 'Supplier').trim(); if(!expMap[n]) expMap[n] = {c:0,b:0,cr:0}; if(p.purchase_type==='credit') expMap[n].cr+=Number(p.amount||0); else if(p.payment_mode==='cash') expMap[n].c+=Number(p.amount||0); else expMap[n].b+=Number(p.amount||0); });
+      spList.forEach(s => { let n = (s.supplier_name || 'Supplier').trim(); if(!expMap[n]) expMap[n] = {c:0,b:0,cr:0}; if(s.payment_mode==='cash') expMap[n].c+=Number(s.amount||0); else expMap[n].b+=Number(s.amount||0); });
+      expList.forEach(e => { let n = e.employee_name ? `${e.category} (${e.employee_name})` : e.category; if(!expMap[n]) expMap[n] = {c:0,b:0,cr:0}; if(e.payment_mode==='cash') expMap[n].c+=Number(e.amount||0); else expMap[n].b+=Number(e.amount||0); });
+
+      let eRows = '';
+      for(let n in expMap) { let x = expMap[n]; eRows += `<tr class="border-b"><td class="p-2 font-bold">${n}</td><td class="p-2">${x.c>0?'₹'+x.c:'-'}</td><td class="p-2">${x.b>0?'₹'+x.b:'-'}</td><td class="p-2">${x.cr>0?'₹'+x.cr:'-'}</td></tr>`; }
+      document.getElementById('expensePartyTableBody').innerHTML = eRows || '<tr><td colspan="4" class="p-2 text-center text-slate-400">ഇടപാടുകൾ ഇല്ല.</td></tr>';
+    }
+
+    function sendReportWhatsApp() {
+      const title = document.getElementById('reportTitleHeader').innerText;
+      const dateStr = document.getElementById('reportDateDisplay').innerText;
+      
+      const saleCash = document.getElementById('boxSaleCash').innerText;
+      const saleBank = document.getElementById('boxSaleBank').innerText;
+      const saleCredit = document.getElementById('boxSaleCredit').innerText;
+      const saleTotal = document.getElementById('boxSaleTotal').innerText;
+
+      const purCash = document.getElementById('boxPurCash').innerText;
+      const purBank = document.getElementById('boxPurBank').innerText;
+      const purCredit = document.getElementById('boxPurCredit').innerText;
+      const purTotal = document.getElementById('boxPurTotal').innerText;
+
+      const activeDate = document.getElementById('reportTypeSelect').value === 'daily' ? document.getElementById('reportDailyDate').value : document.getElementById('reportMonthlyMonth').value;
+
+      let custPaymentsSumCash = 0;
+      let custPaymentsSumBank = 0;
+      let suppPaymentsSumCash = 0;
+      let suppPaymentsSumBank = 0;
+      let expSumCash = 0;
+      let expSumBank = 0;
+
+      const isDaily = document.getElementById('reportTypeSelect').value === 'daily';
+
+      (globalData.custPayments || []).filter(c => isDaily ? getItemDate(c) === activeDate : getItemDate(c).slice(0, 7) === activeDate).forEach(c => {
+        if(c.payment_mode === 'cash') custPaymentsSumCash += Number(c.amount||0);
+        else if(c.payment_mode === 'bank') custPaymentsSumBank += Number(c.amount||0);
+      });
+
+      (globalData.suppPayments || []).filter(sp => isDaily ? getItemDate(sp) === activeDate : getItemDate(sp).slice(0, 7) === activeDate).forEach(sp => {
+        if(sp.payment_mode === 'cash') suppPaymentsSumCash += Number(sp.amount||0);
+        else if(sp.payment_mode === 'bank') suppPaymentsSumBank += Number(sp.amount||0);
+      });
+
+      (globalData.expenses || []).filter(e => isDaily ? getItemDate(e) === activeDate : getItemDate(e).slice(0, 7) === activeDate).forEach(e => {
+        if(e.payment_mode === 'cash') expSumCash += Number(e.amount||0);
+        else if(e.payment_mode === 'bank') expSumBank += Number(e.amount||0);
+      });
+
+      const handCash = document.getElementById('boxHandCash').innerText;
+      const handBank = document.getElementById('boxHandBank').innerText;
+      const handTotal = document.getElementById('boxHandTotal').innerText;
+
+      let text = `*${title}*\n_${dateStr}_\n\n`;
+      
+      text += `🛒 *SALE*:\n`;
+      text += `• Cash + Bank: ${saleCash} / ${saleBank}\n`;
+      text += `• Credit: ${saleCredit}\n`;
+      text += `• Total: ${saleTotal}\n\n`;
+
+      text += `🛍️ *PURCHASE*:\n`;
+      text += `• Cash + Bank: ${purCash} / ${purBank}\n`;
+      text += `• Credit: ${purCredit}\n`;
+      text += `• Total: ${purTotal}\n\n`;
+
+      text += `📥 *CUSTOMER RECEIVED (Receipt)*:\n`;
+      text += `• Cash + Bank: ₹ ${custPaymentsSumCash.toLocaleString()} / ₹ ${custPaymentsSumBank.toLocaleString()}\n\n`;
+
+      text += `📤 *VENDOR PAID (Payment)*:\n`;
+      text += `• Cash + Bank: ₹ ${suppPaymentsSumCash.toLocaleString()} / ₹ ${suppPaymentsSumBank.toLocaleString()}\n\n`;
+
+      text += `💸 *EXPENSE*:\n`;
+      text += `• Cash + Bank: ₹ ${expSumCash.toLocaleString()} / ₹ ${expSumBank.toLocaleString()}\n\n`;
+
+      text += `💵 *HAND* - Cash: ${handCash} | Bank: ${handBank} (Total: ${handTotal})\n`;
+
+      const type = document.getElementById('reportTypeSelect').value;
+      if (type === 'monthly') {
+        const custDue = window.calculatedTotalCustDue !== undefined ? window.calculatedTotalCustDue.toLocaleString() : '0';
+        const suppDue = window.calculatedTotalSuppDue !== undefined ? window.calculatedTotalSuppDue.toLocaleString() : '0';
+        const empDue = window.calculatedTotalEmpDue !== undefined ? window.calculatedTotalEmpDue.toLocaleString() : '0';
+
+        text += `\n👥 *BALANCES SUMMARY:*\n`;
+        text += `• Total Customer Dues: ₹ ${custDue}\n`;
+        text += `• Total Vendor Dues: ₹ ${suppDue}\n`;
+        text += `• Total Employee Dues: ₹ ${empDue}\n`;
+      }
+
+      text += `\n*(റുഗാമ സൂപ്പർമാർക്കറ്റ്)*`;
+
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+    }
+
+    // Master Module Functions
+    async function loadMasterData() { renderPartiesTable(); renderEmployeesTable(); renderCategoriesTable(); }
+    
+    function renderPartiesTable() {
+      let rows = '';
+      const map = new Map();
+      (globalData.openBalances || []).filter(o => o.party_type === 'customer' || o.party_type === 'vendor').forEach(o => map.set(`${o.party_type}_${o.party_name}`, o));
+      map.forEach(p => {
+        rows += `<tr class="border-b"><td class="p-2.5 font-bold">${p.party_type==='customer'?'കസ്റ്റമർ':'വെണ്ടർ'}</td><td class="p-2.5 font-bold">${p.party_name}</td><td class="p-2.5">₹${p.amount}</td><td class="p-2.5 text-right space-x-1"><button onclick="openPartyModal('edit', '${p.party_type}', '${p.party_name}', ${p.amount})" class="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded text-xs font-bold">എഡിറ്റ്</button><button onclick="deleteParty('${p.party_type}', '${p.party_name}')" class="bg-rose-50 text-rose-600 px-2.5 py-1 rounded text-xs font-bold">ഡിലീറ്റ്</button></td></tr>`;
+      });
+      document.getElementById('partyTableBody').innerHTML = rows || '<tr><td colspan="4" class="p-3 text-center text-slate-400">വിവരങ്ങൾ ഇല്ല.</td></tr>';
+    }
+    async function deleteParty(t, n) { if(confirm("ഡിലീറ്റ് ചെയ്യണോ?")) { await client.from('opening_balances').delete().eq('party_type', t).eq('party_name', n); loadAllData(); } }
+    
+    function renderEmployeesTable() {
+      let rows = '';
+      (globalData.employees || []).forEach(e => {
+        const clean = (e.name || '').trim().toLowerCase();
+        const adv = (globalData.openBalances || []).filter(o => o.party_type === 'employee' && (o.party_name||'').trim().toLowerCase() === clean).reduce((a,b)=>a+Number(b.amount||0),0);
+        rows += `<tr class="border-b"><td class="p-2.5 font-bold">${e.name}</td><td class="p-2.5">₹${e.monthly_salary}</td><td class="p-2.5 font-bold text-indigo-700">₹${adv}</td><td class="p-2.5">${e.join_date||'-'}</td><td class="p-2.5 text-right space-x-1"><button onclick="openEmployeeModal('edit', '${e.name}', ${e.monthly_salary||0}, ${adv}, '${e.join_date||todayStr}')" class="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded text-xs font-bold">എഡിറ്റ്</button><button onclick="deleteEmployee('${e.name}')" class="bg-rose-50 text-rose-600 px-2.5 py-1 rounded text-xs font-bold">ഡിലീറ്റ്</button></td></tr>`;
+      });
+      document.getElementById('employeeTableBody').innerHTML = rows || '<tr><td colspan="5" class="p-3 text-center text-slate-400">വിവരങ്ങൾ ഇല്ല.</td></tr>';
+    }
+    async function deleteEmployee(n) {
+      if(confirm("ഡിലീറ്റ് ചെയ്യണോ?")) {
+        await client.from('employees').delete().eq('name', n);
+        await client.from('opening_balances').delete().eq('party_type', 'employee').eq('party_name', n);
+        loadAllData();
+      }
+    }
+
+    function renderCategoriesTable() {
+      let stored = JSON.parse(localStorage.getItem('custom_expense_cats') || JSON.stringify(defaultCategories));
+      let rows = '';
+      stored.forEach((c, idx) => {
+        rows += `<tr class="border-b"><td class="p-2.5 font-bold">${c.category_name}</td><td class="p-2.5">${c.sub_category||'-'}</td><td class="p-2.5 text-right space-x-1"><button onclick="openCategoryModal('edit', ${idx}, '${c.category_name}', '${c.sub_category||''}')" class="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded text-xs font-bold">എഡിറ്റ്</button><button onclick="deleteCategory(${idx})" class="bg-rose-50 text-rose-600 px-2.5 py-1 rounded text-xs font-bold">ഡിലീറ്റ്</button></td></tr>`;
+      });
+      document.getElementById('categoryTableBody').innerHTML = rows || '<tr><td colspan="3" class="p-2 text-center text-slate-400">വിവരങ്ങൾ ഇല്ല.</td></tr>';
+      loadExpenseCategories();
+    }
+    function deleteCategory(idx) { 
+      let stored = JSON.parse(localStorage.getItem('custom_expense_cats') || JSON.stringify(defaultCategories)); 
+      stored.splice(idx,1); 
+      localStorage.setItem('custom_expense_cats', JSON.stringify(stored)); 
+      renderCategoriesTable(); 
+    }
+
+    function openPartyModal(mode, type='customer', name='', amount=0) {
+      partyEditMode = mode;
+      document.getElementById('partyModalTitle').innerText = mode === 'add' ? '➕ പാർട്ടി ചേർക്കുക' : '✏️ പാർട്ടി തിരുത്തുക';
+      document.getElementById('partyType').value = type;
+      document.getElementById('partyName').value = name;
+      document.getElementById('partyOriginalName').value = name;
+      document.getElementById('partyAmount').value = amount;
+      document.getElementById('partyModal').classList.remove('hidden');
+    }
+    function closePartyModal() { document.getElementById('partyModal').classList.add('hidden'); }
+    async function submitPartyForm(e) {
+      e.preventDefault();
+      const type = document.getElementById('partyType').value;
+      const name = document.getElementById('partyName').value.trim();
+      const origName = document.getElementById('partyOriginalName').value.trim();
+      const amount = Number(document.getElementById('partyAmount').value) || 0;
+      if(partyEditMode === 'edit' && origName && origName !== name) {
+        await client.from('opening_balances').delete().eq('party_type', type).eq('party_name', origName);
+      }
+      await client.from('opening_balances').upsert([{ date: todayStr, party_type: type, party_name: name, amount }], { onConflict: 'party_type,party_name' });
+      alert("സേവ് ചെയ്തു!"); closePartyModal(); loadAllData();
+    }
+
+    function openEmployeeModal(mode, name='', salary=0, advance=0, joinDate=todayStr) {
+      empEditMode = mode;
+      document.getElementById('employeeModalTitle').innerText = mode === 'add' ? '➕ എംപ്ലോയി ചേർക്കുക' : '✏️ എംപ്ലോയി തിരുത്തുക';
+      document.getElementById('empName').value = name;
+      document.getElementById('empOriginalName').value = name;
+      document.getElementById('empSalary').value = salary;
+      document.getElementById('empAdvance').value = advance;
+      document.getElementById('empJoinDate').value = joinDate;
+      document.getElementById('employeeModal').classList.remove('hidden');
+    }
+    function closeEmployeeModal() { document.getElementById('employeeModal').classList.add('hidden'); }
+    async function submitEmployeeForm(e) {
+      e.preventDefault();
+      const name = document.getElementById('empName').value.trim();
+      const origName = document.getElementById('empOriginalName').value.trim();
+      const monthly_salary = Number(document.getElementById('empSalary').value) || 0;
+      const advance = Number(document.getElementById('empAdvance').value) || 0;
+      const join_date = document.getElementById('empJoinDate').value || todayStr;
+      
+      if(empEditMode === 'edit' && origName && origName !== name) {
+        await client.from('employees').delete().eq('name', origName);
+        await client.from('opening_balances').delete().eq('party_type', 'employee').eq('party_name', origName);
+      }
+      await client.from('employees').upsert([{ name, monthly_salary, join_date }], { onConflict: 'name' });
+      await client.from('opening_balances').upsert([{ date: todayStr, party_type: 'employee', party_name: name, amount: advance, notes: 'Advance/Opening' }], { onConflict: 'party_type,party_name' });
+      alert("സേവ് ചെയ്തു!"); closeEmployeeModal(); loadAllData();
+    }
+
+    function openCategoryModal(mode, index=null, cat='', sub='') {
+      catEditMode = mode;
+      document.getElementById('categoryModalTitle').innerText = mode === 'add' ? '➕ കാറ്റഗറി ചേർക്കുക' : '✏️ കാറ്റഗറി തിരുത്തുക';
+      document.getElementById('catIndex').value = index !== null ? index : '';
+      document.getElementById('catName').value = cat;
+      document.getElementById('subCatName').value = sub;
+      document.getElementById('categoryModal').classList.remove('hidden');
+    }
+    function closeCategoryModal() { document.getElementById('categoryModal').classList.add('hidden'); }
+    function submitCategoryForm(e) {
+      e.preventDefault();
+      const index = document.getElementById('catIndex').value;
+      const catName = document.getElementById('catName').value.trim();
+      const subCatName = document.getElementById('subCatName').value.trim();
+      let stored = JSON.parse(localStorage.getItem('custom_expense_cats') || JSON.stringify(defaultCategories));
+      if(catEditMode === 'edit' && index !== '') {
+        stored[index] = { category_name: catName, sub_category: subCatName };
+      } else {
+        stored.push({ category_name: catName, sub_category: subCatName });
+      }
+      localStorage.setItem('custom_expense_cats', JSON.stringify(stored));
+      alert("സേവ് ചെയ്തു!"); closeCategoryModal(); renderCategoriesTable();
+    }
+
+    loadAllData();
+  </script>
+</body>
+</html>
